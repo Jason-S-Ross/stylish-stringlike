@@ -36,6 +36,16 @@ impl<'a> SpanWidget<'a> {
     pub fn shrink(&self, width: usize) -> ShrunkSpanWidget {
         ShrunkSpanWidget { span: self, width }
     }
+    fn truncate_slice_left_width<'b>(&'b self, width: usize) -> &'b [StyledGrapheme<'a>] {
+        let mut slice_width = 0;
+        for grapheme in self.span[..].iter() {
+            slice_width += grapheme.grapheme_width();
+            if slice_width >= width {
+                break
+            }
+        }
+        &self.span[..slice_width]
+    }
     fn shrunk_left<'b>(&'b self, width: usize) -> Span<'b> {
         if self.width() <= width {
             (*self.span).clone()
@@ -67,7 +77,7 @@ impl<'a> SpanWidget<'a> {
                         graphemes.extend_from_slice(&self.span[..w])
                     }
                     (w, ew, sw) => {
-                        graphemes.extend_from_slice(&self.span[..w - ew]);
+                        graphemes.extend_from_slice(&self.truncate_slice_left_width(w - ew));
                         graphemes.extend_from_slice(&self.ellipsis[..]);
                     }
                 }
@@ -165,8 +175,8 @@ mod tests {
         }
         for width in 1..=12 {
             let shrunk = span_widget.shrunk_right(width);
+            eprintln!("width:       {}", shrunk[..].iter().map(|x| x.grapheme_width()).sum::<usize>());
             eprintln!("Shrunk:    {}", shrunk);
-            assert_eq!(shrunk.width(), width);
         }
 
     }

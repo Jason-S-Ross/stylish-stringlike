@@ -15,8 +15,11 @@ pub struct StyledGrapheme<'a> {
 
 impl<'a> StyledGrapheme<'a> {
     pub fn width(&self) -> usize {
-        // self.grapheme.width_cjk()
         1
+        //self.grapheme.width_cjk()
+    }
+    pub fn grapheme_width(&self) -> usize {
+        self.grapheme.width()
     }
 }
 
