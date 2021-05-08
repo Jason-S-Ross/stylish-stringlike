@@ -4,7 +4,7 @@ use std::fmt;
 use std::ops::Index;
 use std::iter::FromIterator;
 use std::slice::SliceIndex;
-use unicode_segmentation::UnicodeSegmentation as USeg;
+use unic_segment::{Graphemes, WordBoundIndices};
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Clone, Copy, Debug)]
@@ -34,12 +34,11 @@ pub struct Span<'a> {
 impl<'a> From<&'a ANSIString<'a>> for Span<'a> {
     fn from(string: &'a ANSIString<'a>) -> Span<'a> {
         let style = *string.style_ref();
-        Span {
-            content: string
-                .graphemes(true)
-                .map(|grapheme| StyledGrapheme { grapheme, style })
-                .collect(),
-        }
+        let content = Graphemes::new(string)
+            .map(|grapheme| StyledGrapheme { grapheme, style })
+            .collect();
+
+        Span {content}
     }
 }
 
@@ -49,7 +48,7 @@ impl<'a> FromIterator<&'a ANSIString<'a>> for Span<'a> {
         let mut content: Vec<StyledGrapheme> = vec![];
         for string in iter {
             let style = *string.style_ref();
-            for grapheme in string.graphemes(true) {
+            for grapheme in Graphemes::new(string) {
                 content.push(StyledGrapheme { grapheme, style })
             }
         }
@@ -125,8 +124,8 @@ impl<'a> UnicodeSegmentation<StyledGrapheme<'a>, [StyledGrapheme<'a>]> for Span<
         eprintln!("split_word_bound: {}", self);
         let mut start = 0;
         let mut result = vec![];
-        for (_index, word) in self.as_plain_string().split_word_bound_indices() {
-            let grapheme_count = word.graphemes(true).count();
+        for (_index, word) in WordBoundIndices::new(&self.as_plain_string()) {
+            let grapheme_count = Graphemes::new(word).count();
             let end = start + grapheme_count;
             result.push(UnicodeWordIndex::new(start, &self[start..end]));
             start = end;

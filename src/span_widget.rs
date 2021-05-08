@@ -36,10 +36,49 @@ impl<'a> SpanWidget<'a> {
     pub fn shrink(&self, width: usize) -> ShrunkSpanWidget {
         ShrunkSpanWidget { span: self, width }
     }
+    fn shrunk_left<'b>(&'b self, width: usize) -> Span<'b> {
+        if self.width() <= width {
+            (*self.span).clone()
+        } else {
+            let graphemes = {
+                let mut graphemes: Vec<StyledGrapheme> = vec![];
+                match (width, self.ellipsis.width(), self.width()) {
+                    (w, ew, sw) if (w <= ew) => {
+                        graphemes.extend_from_slice(&self.span[sw - w..])
+                    }
+                    (w, ew, sw) => {
+                        graphemes.extend_from_slice(&self.ellipsis[..]);
+                        graphemes.extend_from_slice(&self.span[sw - w + ew..]);
+                    }
+                }
+                graphemes
+            };
+            Span::new(graphemes)
+        }
+    }
+    fn shrunk_right<'b>(&'b self, width: usize) -> Span<'b> {
+        if self.width() <= width {
+            (*self.span).clone()
+        } else {
+            let graphemes = {
+                let mut graphemes: Vec<StyledGrapheme> = vec![];
+                match (width, self.ellipsis.width(), self.width()) {
+                    (w, ew, sw) if (w <= ew) => {
+                        graphemes.extend_from_slice(&self.span[..w])
+                    }
+                    (w, ew, sw) => {
+                        graphemes.extend_from_slice(&self.span[..w - ew]);
+                        graphemes.extend_from_slice(&self.ellipsis[..]);
+                    }
+                }
+                graphemes
+            };
+            Span::new(graphemes)
+        }
+    }
     fn shrunk<'b>(&'b self, width: usize) -> Span<'b> {
         if self.width() <= width {
-            let s: Span = (*self.span).clone();
-            s
+            (*self.span).clone()
         } else {
             let graphemes = {
                 let mut graphemes: Vec<StyledGrapheme> = vec![];
@@ -64,7 +103,6 @@ impl<'a> SpanWidget<'a> {
             };
             Span::new(graphemes)
         }
-
     }
     fn shrink_to(&self, width: usize, f: &mut fmt::Formatter) -> fmt::Result {
         if self.width() <= width {
@@ -103,25 +141,33 @@ mod tests {
     use ansi_term::{Color, ANSIStrings};
     use crate::span::Span;
     use unicode_width::UnicodeWidthStr;
-    use unicode_segmentation::UnicodeSegmentation;
     #[test]
     fn check_empty_ellipsis() {
         let spans = [
             Color::Red.paint("🍽🍠👅🍑⌣🍴"),
-            Color::Blue.paint("̖̀́̂̋ab☹☺⌢😢")
+            Color::Blue.paint("ab̖̀̑☹☺⌢😢")
         ];
         eprintln!("span1:   {}", spans[1]);
         eprintln!("spans:   {}", ANSIStrings(&spans));
         let span: Span = spans.iter().collect();
-        let ellipsis_term = Color::Green.paint("");
+        let ellipsis_term = Color::Green.paint("...");
         let ellipsis: Span = (&ellipsis_term).into();
         let span_widget = SpanWidget::new(&span, &ellipsis, None);
-        for width in 1..=100 {
+        for width in 1..=12 {
             let shrunk = span_widget.shrunk(width);
             eprintln!("Shrunk:    {}", shrunk);
             assert_eq!(shrunk.width(), width);
         }
-
+        for width in 1..=12 {
+            let shrunk = span_widget.shrunk_left(width);
+            eprintln!("Shrunk:    {}", shrunk);
+            assert_eq!(shrunk.width(), width);
+        }
+        for width in 1..=12 {
+            let shrunk = span_widget.shrunk_right(width);
+            eprintln!("Shrunk:    {}", shrunk);
+            assert_eq!(shrunk.width(), width);
+        }
 
     }
 }

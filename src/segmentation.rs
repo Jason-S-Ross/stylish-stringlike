@@ -1,5 +1,3 @@
-extern crate unicode_segmentation;
-
 #[derive(Debug)]
 pub struct GraphemeIndex<'a, G> {
     index: usize,
