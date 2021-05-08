@@ -5,11 +5,19 @@ use std::ops::Index;
 use std::iter::FromIterator;
 use std::slice::SliceIndex;
 use unicode_segmentation::UnicodeSegmentation as USeg;
+use unicode_width::UnicodeWidthStr;
 
 #[derive(Clone, Copy, Debug)]
 pub struct StyledGrapheme<'a> {
     grapheme: &'a str,
     style: Style,
+}
+
+impl<'a> StyledGrapheme<'a> {
+    pub fn width(&self) -> usize {
+        // self.grapheme.width_cjk()
+        1
+    }
 }
 
 impl<'a> From<&'a StyledGrapheme<'a>> for ANSIString<'a> {
@@ -18,7 +26,7 @@ impl<'a> From<&'a StyledGrapheme<'a>> for ANSIString<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Span<'a> {
     content: Vec<StyledGrapheme<'a>>,
 }
@@ -49,9 +57,26 @@ impl<'a> FromIterator<&'a ANSIString<'a>> for Span<'a> {
     }
 }
 
+impl<'a> FromIterator<&'a StyledGrapheme<'a>> for Span<'a> {
+    fn from_iter<I: IntoIterator<Item=&'a StyledGrapheme<'a>>>(iter: I) -> Span<'a> {
+        let mut content: Vec<StyledGrapheme> = vec![];
+        for grapheme in iter {
+            content.push(grapheme.clone())
+        }
+        Span { content }
+    }
+}
+
 impl<'a> Span<'a> {
+    pub fn new(content: Vec<StyledGrapheme<'a>>) -> Span<'a> {
+        Span { content }
+    }
     fn as_plain_string(&self) -> String {
         self.content.iter().map(|x| x.grapheme.to_owned()).collect()
+    }
+    pub fn width(&self) -> usize {
+        // Because element in content is one grapheme, width is length
+        self.content.iter().map(|x| x.width()).sum()
     }
 }
 
@@ -78,7 +103,7 @@ impl<'a> fmt::Display for Span<'a> {
 
 impl<'a> UnicodeSegmentation<StyledGrapheme<'a>, [StyledGrapheme<'a>]> for Span<'a> {
 
-    const EXTENDED: bool = true;
+    const EXTENDED: bool = false;
     fn graphemes(&self) -> Vec<StyledGrapheme<'a>> {
         // Spans are build from unicode graphemes already so this is trivial
         self.content.clone()
@@ -97,6 +122,7 @@ impl<'a> UnicodeSegmentation<StyledGrapheme<'a>, [StyledGrapheme<'a>]> for Span<
         todo!("Unicode Words")
     }
     fn split_word_bound_indices(&self) -> Vec<UnicodeWordIndex<[StyledGrapheme<'a>]>> {
+        eprintln!("split_word_bound: {}", self);
         let mut start = 0;
         let mut result = vec![];
         for (_index, word) in self.as_plain_string().split_word_bound_indices() {
