@@ -1,7 +1,7 @@
 use ansi_term::{ANSIString, ANSIStrings, Style};
 use std::fmt;
-use std::iter::FromIterator;
-use std::ops::{Bound, Deref, RangeBounds};
+use std::iter::{FromIterator, Sum};
+use std::ops::{Add, AddAssign, Bound, Deref, RangeBounds};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -11,14 +11,47 @@ pub struct StyledGrapheme<'a> {
     grapheme: &'a str,
 }
 
+#[derive(Copy, Clone)]
+pub enum Width {
+    Bounded(usize),
+    Unbounded,
+}
+
+impl Add for Width {
+    type Output = Width;
+    fn add(self, other: Self) -> Self::Output {
+        use Width::{Bounded, Unbounded};
+        match (self, other) {
+            (Unbounded, _) | (_, Unbounded) => Unbounded,
+            (Bounded(left), Bounded(right)) => Bounded(left + right),
+        }
+    }
+}
+
+impl AddAssign for Width {
+    fn add_assign(&mut self, other: Self) {
+        use Width::{Bounded, Unbounded};
+        *self = match (*self, other) {
+            (Unbounded, _) | (_, Unbounded) => Unbounded,
+            (Bounded(left), Bounded(right)) => Bounded(left + right),
+        };
+    }
+}
+
+impl Sum for Width {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Width::Bounded(0), |a, b| a + b)
+    }
+}
+
 pub trait WidthGlyph: fmt::Display + Clone {
-    fn width(&self) -> usize;
+    fn width(&self) -> Width;
     fn raw(&self) -> String;
 }
 
 impl<'a> WidthGlyph for StyledGrapheme<'a> {
-    fn width(&self) -> usize {
-        self.grapheme.width()
+    fn width(&self) -> Width {
+        Width::Bounded(self.grapheme.width())
     }
     fn raw(&self) -> String {
         self.grapheme.to_owned()
@@ -62,9 +95,7 @@ where
     G: WidthGlyph,
 {
     fn graphemes(&'a self) -> Box<dyn Iterator<Item = G> + 'a>;
-    fn width(&'a self) -> usize {
-        self.graphemes().map(|x| x.width()).sum()
-    }
+    fn width(&'a self) -> Width;
     fn raw(&self) -> String;
     fn slice_width(
         &'a self,
@@ -74,8 +105,12 @@ where
             self.graphemes()
                 .scan(0, move |position, g| {
                     let in_range = range.contains(position);
-                    *position += g.width();
-                    Some((g, in_range))
+                    if let Width::Bounded(w) = g.width() {
+                        *position += w;
+                        Some((g, in_range))
+                    } else {
+                        None
+                    }
                 })
                 .skip_while(|(_g, in_range)| !in_range)
                 .take_while(|(_g, in_range)| *in_range)
@@ -84,7 +119,24 @@ where
     }
 }
 
+pub trait FiniteText<'a, G: 'a>: Text<'a, G>
+where
+    G: WidthGlyph,
+{
+    fn bounded_width(&'a self) -> usize {
+        match self.width() {
+            Width::Bounded(w) => w,
+            Width::Unbounded => {
+                unreachable!("Created a finite text object with an unbounded width")
+            }
+        }
+    }
+}
+
 impl<'a> Text<'a, StyledGrapheme<'a>> for Span {
+    fn width(&'a self) -> Width {
+        self.graphemes().map(|x| x.width()).sum()
+    }
     fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
         Box::new(
             self.content
@@ -100,11 +152,16 @@ impl<'a> Text<'a, StyledGrapheme<'a>> for Span {
     }
 }
 
+impl<'a> FiniteText<'a, StyledGrapheme<'a>> for Span {}
+
 pub struct Spans {
     spans: Vec<Span>,
 }
 
 impl<'a> Text<'a, StyledGrapheme<'a>> for Spans {
+    fn width(&'a self) -> Width {
+        self.graphemes().map(|x| x.width()).sum()
+    }
     fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
         Box::new(self.spans.iter().flat_map(|x| x.graphemes()))
     }
@@ -141,3 +198,5 @@ impl fmt::Display for Spans {
         ansistrings.fmt(fmt)
     }
 }
+
+impl<'a> FiniteText<'a, StyledGrapheme<'a>> for Spans {}

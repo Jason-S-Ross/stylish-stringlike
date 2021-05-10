@@ -1,4 +1,4 @@
-use crate::text::{Text, WidthGlyph};
+use crate::text::{FiniteText, Text, Width, WidthGlyph};
 use std::fmt;
 use std::marker::PhantomData;
 use std::ops::Bound;
@@ -10,22 +10,22 @@ where
     fn truncate_left(
         &'a self,
         width: usize,
-        symbol: &'a dyn Text<'a, G>,
+        symbol: &'a dyn FiniteText<'a, G>,
     ) -> Box<dyn Iterator<Item = G> + 'a>;
     fn truncate_right(
         &'a self,
         width: usize,
-        symbol: &'a dyn Text<'a, G>,
+        symbol: &'a dyn FiniteText<'a, G>,
     ) -> Box<dyn Iterator<Item = G> + 'a>;
     fn truncate_outer(
         &'a self,
         width: usize,
-        symbol: &'a dyn Text<'a, G>,
+        symbol: &'a dyn FiniteText<'a, G>,
     ) -> Box<dyn Iterator<Item = G> + 'a>;
     fn truncate_inner(
         &'a self,
         width: usize,
-        symbol: &'a dyn Text<'a, G>,
+        symbol: &'a dyn FiniteText<'a, G>,
     ) -> Box<dyn Iterator<Item = G> + 'a>;
 }
 
@@ -43,7 +43,7 @@ where
 {
     text: &'a dyn Truncatable<'a, G>,
     truncation_style: TruncationStyle,
-    truncation_symbol: &'a dyn Text<'a, G>,
+    truncation_symbol: &'a dyn FiniteText<'a, G>,
 }
 
 impl<'a, G> TextWidget<'a, G>
@@ -53,7 +53,7 @@ where
     pub fn new(
         text: &'a dyn Truncatable<'a, G>,
         truncation_style: TruncationStyle,
-        truncation_symbol: &'a dyn Text<'a, G>,
+        truncation_symbol: &'a dyn FiniteText<'a, G>,
     ) -> Self {
         TextWidget {
             text,
@@ -113,16 +113,19 @@ where
     fn truncate_left(
         &'a self,
         width: usize,
-        symbol: &'a dyn Text<'a, G>,
+        symbol: &'a dyn FiniteText<'a, G>,
     ) -> Box<dyn Iterator<Item = G> + 'a> {
         let self_width = self.width();
-        if width >= self_width {
-            return self.graphemes();
+        match self_width {
+            Width::Bounded(w) if width >= w => {
+                return self.graphemes();
+            }
+            _ => {}
         }
         Box::new(
             self.slice_width((
                 Bound::Unbounded,
-                Bound::Excluded(width.saturating_sub(symbol.width())),
+                Bound::Excluded(width.saturating_sub(symbol.bounded_width())),
             ))
             .chain(symbol.graphemes()),
         )
@@ -130,61 +133,96 @@ where
     fn truncate_right(
         &'a self,
         width: usize,
-        symbol: &'a dyn Text<'a, G>,
+        symbol: &'a dyn FiniteText<'a, G>,
     ) -> Box<dyn Iterator<Item = G> + 'a> {
         let self_width = self.width();
-        if width >= self_width {
-            return self.graphemes();
+        match self_width {
+            Width::Bounded(w) if width >= w => {
+                return self.graphemes();
+            }
+            _ => {}
         }
-        Box::new(
-            symbol.graphemes().chain(
-                self.slice_width((
-                    Bound::Excluded(
-                        self.width()
-                            .saturating_sub(width.saturating_sub(symbol.width())),
-                    ),
-                    Bound::Unbounded,
-                )),
-            ),
-        )
+        if let Width::Bounded(self_width) = self_width {
+            Box::new(symbol.graphemes().chain(self.slice_width((
+                Bound::Excluded(
+                    self_width.saturating_sub(width.saturating_sub(symbol.bounded_width())),
+                ),
+                Bound::Unbounded,
+            ))))
+        } else {
+            Box::new(symbol.graphemes().chain(self.slice_width((
+                Bound::Unbounded,
+                Bound::Excluded(width.saturating_sub(symbol.bounded_width())),
+            ))))
+        }
     }
     fn truncate_outer(
         &'a self,
         width: usize,
-        symbol: &'a dyn Text<'a, G>,
+        symbol: &'a dyn FiniteText<'a, G>,
     ) -> Box<dyn Iterator<Item = G> + 'a> {
         let self_width = self.width();
-        if width >= self_width {
-            return self.graphemes();
+        match self_width {
+            Width::Bounded(w) if width >= w => {
+                return self.graphemes();
+            }
+            _ => {}
         }
-        let diff = self_width.saturating_sub(width) + 2 * symbol.width();
-        let start = diff / 2;
-        let end = start + width.saturating_sub(2 * symbol.width());
-        Box::new(
-            symbol
-                .graphemes()
-                .chain(self.slice_width((Bound::Excluded(start), Bound::Excluded(end))))
-                .chain(symbol.graphemes()),
-        )
+        let sym_width = symbol.bounded_width();
+        if let Width::Bounded(self_width) = self_width {
+            let diff = self_width.saturating_sub(width) + 2 * sym_width;
+            let start = diff / 2;
+            let end = start + width.saturating_sub(2 * sym_width);
+            Box::new(
+                symbol
+                    .graphemes()
+                    .chain(self.slice_width((Bound::Excluded(start), Bound::Excluded(end))))
+                    .chain(symbol.graphemes()),
+            )
+        } else {
+            Box::new(
+                symbol
+                    .graphemes()
+                    .chain(
+                        self.slice_width((
+                            Bound::Unbounded,
+                            Bound::Excluded(width - 2 * sym_width),
+                        )),
+                    )
+                    .chain(symbol.graphemes()),
+            )
+        }
     }
     fn truncate_inner(
         &'a self,
         width: usize,
-        symbol: &'a dyn Text<'a, G>,
+        symbol: &'a dyn FiniteText<'a, G>,
     ) -> Box<dyn Iterator<Item = G> + 'a> {
         let self_width = self.width();
-        if width >= self_width {
-            return self.graphemes();
+        match self_width {
+            Width::Bounded(w) if width >= w => {
+                return self.graphemes();
+            }
+            _ => {}
         }
-        let text_width = width.saturating_sub(symbol.width());
+        let sym_width = symbol.bounded_width();
+        let text_width = width.saturating_sub(sym_width);
         let w = text_width / 2 + text_width % 2;
-        Box::new(
-            self.slice_width((Bound::Unbounded, Bound::Excluded(w)))
-                .chain(symbol.graphemes())
-                .chain(self.slice_width((
-                    Bound::Excluded(self.width().saturating_sub(w) + text_width % 2),
-                    Bound::Unbounded,
-                ))),
-        )
+        if let Width::Bounded(self_width) = self_width {
+            Box::new(
+                self.slice_width((Bound::Unbounded, Bound::Excluded(w)))
+                    .chain(symbol.graphemes())
+                    .chain(self.slice_width((
+                        Bound::Excluded(self_width.saturating_sub(w) + text_width % 2),
+                        Bound::Unbounded,
+                    ))),
+            )
+        } else {
+            Box::new(
+                self.slice_width((Bound::Unbounded, Bound::Excluded(w)))
+                    .chain(symbol.graphemes())
+                    .chain(self.slice_width((Bound::Unbounded, Bound::Excluded(w)))),
+            )
+        }
     }
 }
