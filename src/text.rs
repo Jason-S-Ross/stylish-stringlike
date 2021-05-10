@@ -1,22 +1,27 @@
 use ansi_term::{ANSIString, ANSIStrings, Style};
 use std::fmt;
 use std::iter::FromIterator;
-use std::ops::{Deref, RangeBounds};
+use std::ops::{Bound, Deref, RangeBounds};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
+#[derive(Clone)]
 pub struct StyledGrapheme<'a> {
     style: &'a Style,
     grapheme: &'a str,
 }
 
-pub trait WidthGlyph {
+pub trait WidthGlyph: fmt::Display + Clone {
     fn width(&self) -> usize;
+    fn raw(&self) -> String;
 }
 
 impl<'a> WidthGlyph for StyledGrapheme<'a> {
     fn width(&self) -> usize {
         self.grapheme.width()
+    }
+    fn raw(&self) -> String {
+        self.grapheme.to_owned()
     }
 }
 
@@ -61,9 +66,9 @@ where
         self.graphemes().map(|x| x.width()).sum()
     }
     fn raw(&self) -> String;
-    fn slice_width<T: RangeBounds<usize> + 'a>(
+    fn slice_width(
         &'a self,
-        range: T,
+        range: (Bound<usize>, Bound<usize>),
     ) -> Box<dyn Iterator<Item = G> + 'a> {
         Box::new(
             self.graphemes()
