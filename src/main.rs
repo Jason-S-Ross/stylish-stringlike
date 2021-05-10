@@ -25,12 +25,12 @@ fn main() {
     let ellipsis_span: Span = (&ellipsis).into();
     let repeat_widget = Repeat::new(g);
     let repeat_text_widget = TextWidget::new(&repeat_widget, TruncationStyle::Left, &ellipsis_span);
-    let mut widgets: Vec<TextWidget<_>> = groups
+    let mut widgets: Vec<TextWidget> = groups
         .iter()
         .map(|x| TextWidget::new(x, TruncationStyle::Left, &ellipsis_span))
         .collect();
     widgets.insert(0, repeat_text_widget);
-    let widget_refs: Vec<&TextWidget<_>> = widgets.iter().collect();
+    let widget_refs: Vec<&TextWidget> = widgets.iter().collect();
     let hbox = HBox::new(&widget_refs);
     for width in 0..50 {
         println!(

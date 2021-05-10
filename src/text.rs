@@ -44,16 +44,11 @@ impl Sum for Width {
     }
 }
 
-pub trait WidthGlyph: fmt::Display + Clone {
-    fn width(&self) -> Width;
-    fn raw(&self) -> String;
-}
-
-impl<'a> WidthGlyph for StyledGrapheme<'a> {
-    fn width(&self) -> Width {
+impl<'a> StyledGrapheme<'a> {
+    pub fn width(&self) -> Width {
         Width::Bounded(self.grapheme.width())
     }
-    fn raw(&self) -> String {
+    pub fn raw(&self) -> String {
         self.grapheme.to_owned()
     }
 }
@@ -90,17 +85,14 @@ impl<'a> From<&'a Span> for ANSIString<'a> {
     }
 }
 
-pub trait Text<'a, G: 'a>: fmt::Display
-where
-    G: WidthGlyph,
-{
-    fn graphemes(&'a self) -> Box<dyn Iterator<Item = G> + 'a>;
+pub trait Text<'a>: fmt::Display {
+    fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a>;
     fn width(&'a self) -> Width;
     fn raw(&self) -> String;
     fn slice_width(
         &'a self,
         range: (Bound<usize>, Bound<usize>),
-    ) -> Box<dyn Iterator<Item = G> + 'a> {
+    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
         Box::new(
             self.graphemes()
                 .scan(0, move |position, g| {
@@ -119,10 +111,7 @@ where
     }
 }
 
-pub trait FiniteText<'a, G: 'a>: Text<'a, G>
-where
-    G: WidthGlyph,
-{
+pub trait FiniteText<'a>: Text<'a> {
     fn bounded_width(&'a self) -> usize {
         match self.width() {
             Width::Bounded(w) => w,
@@ -133,7 +122,7 @@ where
     }
 }
 
-impl<'a> Text<'a, StyledGrapheme<'a>> for Span {
+impl<'a> Text<'a> for Span {
     fn width(&'a self) -> Width {
         self.graphemes().map(|x| x.width()).sum()
     }
@@ -152,13 +141,13 @@ impl<'a> Text<'a, StyledGrapheme<'a>> for Span {
     }
 }
 
-impl<'a> FiniteText<'a, StyledGrapheme<'a>> for Span {}
+impl<'a> FiniteText<'a> for Span {}
 
 pub struct Spans {
     spans: Vec<Span>,
 }
 
-impl<'a> Text<'a, StyledGrapheme<'a>> for Spans {
+impl<'a> Text<'a> for Spans {
     fn width(&'a self) -> Width {
         self.graphemes().map(|x| x.width()).sum()
     }
@@ -199,4 +188,4 @@ impl fmt::Display for Spans {
     }
 }
 
-impl<'a> FiniteText<'a, StyledGrapheme<'a>> for Spans {}
+impl<'a> FiniteText<'a> for Spans {}

@@ -1,41 +1,29 @@
-use crate::text::{Text, Width, WidthGlyph};
+use crate::text::{StyledGrapheme, Text, Width};
 use std::fmt;
 use std::iter::repeat;
 use std::ops::{Bound, RangeBounds};
 
-pub struct Repeat<G>
-where
-    G: WidthGlyph,
-{
-    grapheme: G,
+pub struct Repeat<'a> {
+    grapheme: StyledGrapheme<'a>,
 }
 
-impl<G> Repeat<G>
-where
-    G: WidthGlyph,
-{
-    pub fn new(grapheme: G) -> Self {
+impl<'a> Repeat<'a> {
+    pub fn new(grapheme: StyledGrapheme<'a>) -> Self {
         Repeat { grapheme }
     }
 }
 
-impl<G> fmt::Display for Repeat<G>
-where
-    G: WidthGlyph,
-{
+impl<'a> fmt::Display for Repeat<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         self.grapheme.fmt(fmt)
     }
 }
 
-impl<'a, G> Text<'a, G> for Repeat<G>
-where
-    G: WidthGlyph + 'a,
-{
+impl<'a> Text<'a> for Repeat<'a> {
     fn width(&'a self) -> Width {
         Width::Unbounded
     }
-    fn graphemes(&'a self) -> Box<dyn Iterator<Item = G> + 'a> {
+    fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
         Box::new(repeat(self.grapheme.clone()))
     }
     fn raw(&self) -> String {
@@ -44,7 +32,7 @@ where
     fn slice_width(
         &'a self,
         range: (Bound<usize>, Bound<usize>),
-    ) -> Box<dyn Iterator<Item = G> + 'a> {
+    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
         if let Width::Bounded(width) = self.grapheme.width() {
             Box::new(self.graphemes().scan(0, move |position, g| {
                 let in_range = range.contains(position);
