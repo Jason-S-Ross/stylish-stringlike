@@ -1,32 +1,23 @@
-mod segmentation;
-mod span;
-mod stringlike;
-mod span_widget;
-use ansi_term::Color;
-use segmentation::UnicodeSegmentation;
-use span::Span;
-use span_widget::SpanWidget;
+mod text;
+mod text_widget;
+
+use crate::text::Text;
+use crate::text::{Span, Spans};
+use crate::text_widget::Truncatable;
+use ansi_term::{Color, ANSIStrings};
 
 fn main() {
-    let spans = [
-        Color::Red.paint("🍽🍠👅🍑⌣🍴"),
-        Color::Blue.paint("☹☺⌢😢")
-    ];
-    let span: Span = spans.iter().collect();
+    let words = Color::Red.paint("Hello, World!");
+    let more_words = Color::Blue.paint("Here lies Beavis");
+    let groups: Vec<Span> = vec![(&words).into(), (&more_words).into()];
+    let text: Spans = groups.iter().flat_map(|x| x.graphemes()).collect();
+    let ellipsis = Color::Blue.paint("…");
+    let ellipsis_span: Span = (&ellipsis).into();
+    for width in 0..30 {
+        println!("span truncated: {}", text.truncate_left(width, &ellipsis_span).collect::<Spans>());
+        println!("span truncated: {}", text.truncate_right(width, &ellipsis_span).collect::<Spans>());
+        println!("span truncated: {}", text.truncate_outer(width, &ellipsis_span).collect::<Spans>());
+        println!("span truncated: {}", text.truncate_inner(width, &ellipsis_span).collect::<Spans>());
 
-    println!("Spans: {}", span);
-    for word in span.split_word_bound_indices() {
-        println!("{:?}", word);
-    }
-    let ellipsis_colors = Color::Green.paint("……");
-    let ellipsis: Span = (&ellipsis_colors).into();
-    let span_widget = SpanWidget::new(&span, &ellipsis, None);
-    for grapheme in span[..].iter() {
-        println!("{:?}", grapheme);
-    }
-    println!("span_widget:  {}", span_widget);
-    for width in 1..=10 {
-        let shrunk = span_widget.shrink(width);
-        println!("Shrunk {:03}: {}", width, shrunk)
     }
 }
