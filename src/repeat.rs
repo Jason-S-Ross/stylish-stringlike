@@ -1,4 +1,4 @@
-use crate::text::{StyledGrapheme, Text, Width};
+use crate::text::{Graphemes, StyledGrapheme, Text, Width};
 use std::fmt;
 use std::iter::repeat;
 use std::ops::{Bound, RangeBounds};
@@ -19,12 +19,15 @@ impl<'a> fmt::Display for Repeat<'a> {
     }
 }
 
+impl<'a> Graphemes<'a> for Repeat<'a> {
+    fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
+        Box::new(repeat(self.grapheme.clone()))
+    }
+}
+
 impl<'a> Text<'a> for Repeat<'a> {
     fn width(&'a self) -> Width {
         Width::Unbounded
-    }
-    fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
-        Box::new(repeat(self.grapheme.clone()))
     }
     fn raw(&self) -> String {
         self.grapheme.raw()

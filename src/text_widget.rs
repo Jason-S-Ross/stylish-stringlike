@@ -1,6 +1,5 @@
 use crate::text::{FiniteText, StyledGrapheme, Text, Width};
 use std::fmt;
-use std::marker::PhantomData;
 use std::ops::Bound;
 
 pub trait Truncatable<'a>: fmt::Display {
