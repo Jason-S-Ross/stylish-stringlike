@@ -9,13 +9,15 @@ use ansi_term::Color;
 
 fn main() {
     let texts = vec![
-        Color::Red.paint("Hello, World! 🌍🌍"),
-        Color::Blue.paint("💀💀Here lies Beavis, "),
-        Color::Green.paint("He never scored."),
-        Color::Yellow.paint(" Very Sad!"),
-        Color::Cyan.paint(" lol "),
+        Color::Red.paint("Here is fo"),
+        Color::Blue.paint("o some foo text f"),
+        Color::Green.paint("oo. \nThis should look like"),
+        Color::Red.paint("Here is some ba"),
+        Color::Blue.paint("r some bar text b"),
+        Color::Green.paint("ar"),
     ];
     let text: Spans = (&texts).into();
+    let text = text.replace("foo", "bar");
     for span in text.spans() {
         println!("{}", span);
     }

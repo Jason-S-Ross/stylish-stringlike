@@ -114,15 +114,18 @@ pub mod spans {
 
     use super::*;
     use ansi_term::Style;
+    use std::convert::TryInto;
     use std::iter::FromIterator;
 
     /// Contains a data structure to allow fast lookup of the value to the left.
     mod search_tree {
         use std::borrow::Borrow;
         use std::collections::btree_map::Iter;
+        use std::collections::btree_map::Range;
         use std::collections::BTreeMap;
+        use std::ops::RangeBounds;
         /// Data structure to quickly look up the nearest value smaller than a given value.
-        #[derive(Debug)]
+        #[derive(Clone, Debug)]
         pub struct SearchTree<K, V> {
             tree: BTreeMap<K, V>,
         }
@@ -134,6 +137,14 @@ pub mod spans {
                 SearchTree {
                     tree: BTreeMap::<K, V>::new(),
                 }
+            }
+            pub fn range<T, R>(&self, range: R) -> Range<'_, K, V>
+            where
+                T: Ord + ?Sized,
+                R: RangeBounds<T>,
+                K: Borrow<T> + Ord,
+            {
+                self.tree.range(range)
             }
             pub fn search_left<T>(&self, key: &T) -> Option<&V>
             where
@@ -216,6 +227,57 @@ pub mod spans {
     }
 
     impl Spans {
+        pub fn replace(&self, from: &str, to: &str) -> Self {
+            let mut result = String::new();
+            let mut spans = SearchTree::<usize, Style>::new();
+            let mut last_end = 0;
+            let mut shift_total: isize = 0;
+            let shift_incr: isize = (from.len() - to.len()).try_into().unwrap();
+            let mut last_start = 0;
+            println!(
+                "keys before: {:?}",
+                self.spans.iter().map(|(k, _v)| *k).collect::<Vec<usize>>()
+            );
+
+            for (start, part) in self.content.match_indices(from) {
+                if let Some(before) = self.content.get(last_end..start) {
+                    result.push_str(before);
+                    result.push_str(to);
+                    let contained_spans = self.spans.range(last_start..start);
+                    println!("last_start: {}, start: {}", last_start, start);
+                    println!(
+                        "contained_spans: {:?}",
+                        contained_spans
+                            .clone()
+                            .map(|(k, _v)| *k)
+                            .collect::<Vec<_>>()
+                    );
+                    for (key, style) in contained_spans {
+                        println!("key: {}", key);
+                        spans.insert((*key as isize + shift_total).try_into().unwrap(), *style);
+                    }
+                    shift_total += shift_incr;
+                    last_end = start + part.len();
+                    last_start = start;
+                }
+            }
+            if let Some(after) = self.content.get(last_end..self.content.len()) {
+                result.push_str(after);
+                let contained_spans = self.spans.range(last_start..self.content.len());
+                for (key, style) in contained_spans {
+                    spans.insert((*key as isize + shift_total).try_into().unwrap(), *style);
+                }
+            }
+            println!(
+                "keys after: {:?}",
+                spans.iter().map(|(k, _v)| *k).collect::<Vec<usize>>()
+            );
+            Spans {
+                content: result,
+                spans,
+                default_style: Default::default(),
+            }
+        }
         pub fn spans(&self) -> impl Iterator<Item = Span<'_>> {
             self.spans
                 .iter()
@@ -282,7 +344,7 @@ pub mod spans {
             Spans {
                 content,
                 spans,
-                default_style: Style::new(),
+                default_style: Default::default(),
             }
         }
     }
@@ -309,12 +371,9 @@ pub mod spans {
     }
 
     impl fmt::Display for Spans {
-        // TODO: This is a lazy implementation. It would be more efficient
-        // to build an ANSIStrings from this instead of sending all the
-        // extra characters to the terminal
         fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-            for grapheme in self.graphemes() {
-                match grapheme.fmt(fmt) {
+            for span in self.spans() {
+                match span.fmt(fmt) {
                     Ok(_) => {}
                     Err(e) => return Err(e),
                 }
