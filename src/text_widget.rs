@@ -195,11 +195,21 @@ impl<'a> HBox<'a> {
         }
     }
     pub fn truncate(&'a self, width: usize) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
-        let mut to_fit = self.elements.len();
         let mut space = width;
-        let mut todo: Vec<(usize, _)> = self.elements.iter().enumerate().collect();
+        let mut todo: Vec<(usize, _)> = self
+            .elements
+            .iter()
+            .enumerate()
+            .filter_map(|(index, element)| {
+                if let Width::Bounded(w) = element.text.width() {
+                    Some((index, element))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let mut to_fit = todo.len();
         let mut widths: std::collections::HashMap<usize, usize> = Default::default();
-
         while to_fit > 0 {
             let target_width: f32 = space as f32 / to_fit as f32;
             let mut to_pop = vec![];
@@ -225,11 +235,37 @@ impl<'a> HBox<'a> {
                     } else {
                         target_width
                     };
+                    space -= w;
                     widths.insert(*index, w);
                 }
                 break;
             }
         }
+        let infinite_widths: Vec<(usize, _)> = self
+            .elements
+            .iter()
+            .enumerate()
+            .filter_map(|(index, element)| {
+                if let Width::Unbounded = element.text.width() {
+                    Some((index, element))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        {
+            let target_width = space / infinite_widths.len();
+            let rem = space % infinite_widths.len();
+            for (rel_index, (abs_index, _element)) in infinite_widths.iter().enumerate() {
+                let w = if rel_index < rem {
+                    target_width + 1
+                } else {
+                    target_width
+                };
+                widths.insert(*abs_index, w);
+            }
+        }
+
         Box::new(
             self.elements
                 .iter()

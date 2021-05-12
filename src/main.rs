@@ -19,10 +19,12 @@ fn main() {
     let texts: Vec<Spans> = texts.iter().map(|x| x.into()).collect();
     let ellipsis = Color::Blue.paint("…");
     let ellipsis_span: Spans = (&ellipsis).into();
+    let empty = Color::Black.paint("");
+    let empty_span: Spans = (&empty).into();
     let equals = Color::Yellow.paint("=");
     let g = (&equals).graphemes().next().unwrap();
     let repeat_widget = Repeat::new(g);
-    let repeat_text_widget = TextWidget::new(&repeat_widget, TruncationStyle::Left, &ellipsis_span);
+    let repeat_text_widget = TextWidget::new(&repeat_widget, TruncationStyle::Left, &empty_span);
     let mut widgets: Vec<TextWidget> = texts
         .iter()
         .map(|x| TextWidget::new(x, TruncationStyle::Left, &ellipsis_span))
