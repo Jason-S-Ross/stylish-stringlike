@@ -201,7 +201,7 @@ impl<'a> HBox<'a> {
             .iter()
             .enumerate()
             .filter_map(|(index, element)| {
-                if let Width::Bounded(w) = element.text.width() {
+                if let Width::Bounded(_w) = element.text.width() {
                     Some((index, element))
                 } else {
                     None
@@ -226,7 +226,7 @@ impl<'a> HBox<'a> {
             for index in to_pop.iter().rev() {
                 todo.remove(*index);
             }
-            if to_pop.len() == 0 {
+            if to_pop.is_empty() {
                 let target_width = space / todo.len();
                 let rem = space % todo.len();
                 for (i, (index, _widget)) in todo.iter().enumerate() {

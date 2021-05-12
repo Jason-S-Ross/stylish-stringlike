@@ -1,7 +1,7 @@
+pub use self::spans::Spans;
 use ansi_term::{ANSIString, Style};
-use ouroboros::self_referencing;
 use std::fmt;
-use std::iter::{FromIterator, Sum};
+use std::iter::Sum;
 use std::ops::{Add, AddAssign, Bound, Deref, RangeBounds};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -67,18 +67,6 @@ impl<'a> fmt::Display for StyledGrapheme<'a> {
     }
 }
 
-#[derive(Debug)]
-pub struct Span<'a> {
-    style: Style,
-    content: &'a str,
-}
-
-impl<'a> fmt::Display for Span<'a> {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        self.style.paint(self.content).fmt(fmt)
-    }
-}
-
 pub trait Graphemes<'a> {
     fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a>;
 }
@@ -118,137 +106,221 @@ pub trait FiniteText<'a>: Text<'a> + fmt::Debug {
     }
 }
 
-impl<'a> Graphemes<'a> for Span<'a> {
-    fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
-        Box::new(
-            self.content
-                .graphemes(true)
-                .map(move |grapheme| StyledGrapheme {
-                    style: &self.style,
-                    grapheme,
-                }),
-        )
-    }
-}
+pub mod spans {
 
-impl<'a> HasWidth for Span<'a> {
-    fn width(&self) -> Width {
-        self.graphemes().map(|x| x.width()).sum()
-    }
-}
+    use super::*;
+    use ansi_term::Style;
+    use std::iter::FromIterator;
 
-impl<'a> Text<'a> for Span<'a> {
-    fn raw(&self) -> String {
-        self.content.to_owned()
-    }
-}
-
-impl<'a> FiniteText<'a> for Span<'a> {}
-
-#[self_referencing]
-#[derive(Debug)]
-pub struct Spans {
-    content: String,
-    #[borrows(content)]
-    #[covariant]
-    spans: Vec<Span<'this>>,
-}
-
-impl<'a> Graphemes<'a> for Spans {
-    fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
-        Box::new(self.borrow_spans().iter().flat_map(|x| x.graphemes()))
-    }
-}
-
-impl<'a> FromIterator<StyledGrapheme<'a>> for Spans {
-    fn from_iter<I>(iter: I) -> Spans
-    where
-        I: IntoIterator<Item = StyledGrapheme<'a>>,
-    {
+    /// Contains a data structure to allow fast lookup of the value to the left.
+    mod search_tree {
+        use std::borrow::Borrow;
+        use std::collections::btree_map::Iter;
+        use std::collections::BTreeMap;
+        /// Data structure to quickly look up the nearest value smaller than a given value.
         #[derive(Debug)]
-        struct SpanMarker {
-            style: Style,
-            start: usize,
-            end: usize,
+        pub struct SearchTree<K, V> {
+            tree: BTreeMap<K, V>,
         }
-        let mut content = String::new();
-        let mut span_markers: Vec<SpanMarker> = vec![];
-        let mut start = 0;
-        let mut last_style: Option<Style> = None;
-        for grapheme in iter {
-            let len = content.len();
-            match last_style {
-                Some(style) if style != *grapheme.style => {
-                    span_markers.push(SpanMarker {
-                        style,
-                        start,
-                        end: len,
-                    });
-                    start = len;
-                    last_style = Some(*grapheme.style)
+        impl<K, V> SearchTree<K, V> {
+            pub fn new() -> SearchTree<K, V>
+            where
+                K: Ord,
+            {
+                SearchTree {
+                    tree: BTreeMap::<K, V>::new(),
                 }
-                Some(_style) => {}
-                None => last_style = Some(*grapheme.style),
             }
-            content.push_str(&grapheme.grapheme);
-        }
-        if let Some(style) = last_style {
-            span_markers.push(SpanMarker {
-                style,
-                start,
-                end: content.len(),
-            });
-        }
-        SpansBuilder {
-            content,
-            spans_builder: |s: &str| {
-                span_markers
-                    .iter()
-                    .map(|marker| Span {
-                        content: &s[marker.start..marker.end],
-                        style: marker.style,
-                    })
-                    .collect()
-            },
-        }
-        .build()
-    }
-}
-
-impl HasWidth for Spans {
-    fn width(&self) -> Width {
-        self.graphemes().map(|x| x.width()).sum()
-    }
-}
-
-impl<'a> Text<'a> for Spans {
-    fn raw(&self) -> String {
-        self.borrow_content().to_owned()
-    }
-}
-
-impl<'a, T> From<&'a T> for Spans
-where
-    T: Graphemes<'a> + 'a,
-{
-    fn from(iter: &'a T) -> Spans {
-        iter.graphemes().collect()
-    }
-}
-
-impl fmt::Display for Spans {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        for span in self.borrow_spans() {
-            match span.fmt(fmt) {
-                Ok(_) => {}
-                Err(e) => return Err(e),
+            pub fn search_left<T>(&self, key: &T) -> Option<&V>
+            where
+                T: Ord,
+                K: Borrow<T> + Ord,
+            {
+                if let Some(ref v) = self.tree.get(key) {
+                    Some(v)
+                } else if let Some((_last_key, ref v)) = self.tree.range(..key).last() {
+                    Some(v)
+                } else {
+                    None
+                }
+            }
+            pub fn insert(&mut self, key: K, value: V) -> Option<V>
+            where
+                K: Ord,
+            {
+                self.tree.insert(key, value)
+            }
+            pub fn iter(&self) -> Iter<K, V> {
+                self.tree.iter()
             }
         }
-        Ok(())
     }
-}
 
-impl<'a> FiniteText<'a> for Spans {}
+    /// Contains a data structure to represent a segment of a Spans object
+    pub mod span {
+        use super::*;
+        #[derive(Debug)]
+        pub struct Span<'a> {
+            style: &'a Style,
+            content: &'a str,
+        }
+        impl<'a> fmt::Display for Span<'a> {
+            fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+                self.style.paint(self.content).fmt(fmt)
+            }
+        }
+        impl<'a> Graphemes<'a> for Span<'a> {
+            fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
+                Box::new(
+                    self.content
+                        .graphemes(true)
+                        .map(move |grapheme| StyledGrapheme {
+                            style: &self.style,
+                            grapheme,
+                        }),
+                )
+            }
+        }
+        impl<'a> HasWidth for Span<'a> {
+            fn width(&self) -> Width {
+                self.graphemes().map(|x| x.width()).sum()
+            }
+        }
+        impl<'a> Text<'a> for Span<'a> {
+            fn raw(&self) -> String {
+                self.content.to_owned()
+            }
+        }
+        impl<'a> FiniteText<'a> for Span<'a> {}
+        impl<'a> Span<'a> {
+            pub fn new(style: &'a Style, content: &'a str) -> Span<'a> {
+                Span { style, content }
+            }
+        }
+    }
+
+    pub use span::Span;
+
+    use search_tree::SearchTree;
+
+    #[derive(Debug)]
+    pub struct Spans {
+        content: String,
+        /// Byte-indexed map of spans
+        spans: SearchTree<usize, Style>,
+        default_style: Style,
+    }
+
+    impl Spans {
+        pub fn spans(&self) -> impl Iterator<Item = Span<'_>> {
+            self.spans
+                .iter()
+                .zip(
+                    self.spans
+                        .iter()
+                        .map(Some)
+                        .skip(1)
+                        .chain(std::iter::repeat(None)),
+                )
+                .filter_map(move |((first_key, style), second)| {
+                    let second_key = if let Some((second_key, _)) = second {
+                        *second_key
+                    } else {
+                        self.content.len()
+                    };
+                    if let Some(ref s) = self.content.get(*first_key..second_key) {
+                        Some(Span::new(style, s))
+                    } else {
+                        None
+                    }
+                })
+        }
+    }
+
+    impl<'a> Graphemes<'a> for Spans {
+        fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
+            Box::new(
+                self.content
+                    .grapheme_indices(true)
+                    .map(move |(start_byte, grapheme)| {
+                        let style = if let Some(ref s) = self.spans.search_left(&start_byte) {
+                            s
+                        } else {
+                            &self.default_style
+                        };
+                        StyledGrapheme { grapheme, style }
+                    }),
+            )
+        }
+    }
+
+    impl<'a> FromIterator<StyledGrapheme<'a>> for Spans {
+        fn from_iter<I>(iter: I) -> Spans
+        where
+            I: IntoIterator<Item = StyledGrapheme<'a>>,
+        {
+            let mut content = String::new();
+            let mut last_style: Option<Style> = None;
+            let mut spans = SearchTree::<usize, Style>::new();
+            for grapheme in iter {
+                let len = content.len();
+                match last_style {
+                    Some(style) if style == *grapheme.style => {}
+                    _ => {
+                        if let Some(_style) = spans.insert(len, *grapheme.style) {
+                            unreachable!("Failed to insert {:#?} into tree {:#?}", len, spans)
+                        }
+                        last_style = Some(*grapheme.style)
+                    }
+                }
+                content.push_str(&grapheme.grapheme);
+            }
+            Spans {
+                content,
+                spans,
+                default_style: Style::new(),
+            }
+        }
+    }
+
+    impl HasWidth for Spans {
+        fn width(&self) -> Width {
+            self.graphemes().map(|x| x.width()).sum()
+        }
+    }
+
+    impl<'a> Text<'a> for Spans {
+        fn raw(&self) -> String {
+            self.content.clone()
+        }
+    }
+
+    impl<'a, T> From<&'a T> for Spans
+    where
+        T: Graphemes<'a> + 'a,
+    {
+        fn from(iter: &'a T) -> Spans {
+            iter.graphemes().collect()
+        }
+    }
+
+    impl fmt::Display for Spans {
+        // TODO: This is a lazy implementation. It would be more efficient
+        // to build an ANSIStrings from this instead of sending all the
+        // extra characters to the terminal
+        fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+            for grapheme in self.graphemes() {
+                match grapheme.fmt(fmt) {
+                    Ok(_) => {}
+                    Err(e) => return Err(e),
+                }
+            }
+            Ok(())
+        }
+    }
+
+    impl<'a> FiniteText<'a> for Spans {}
+}
 
 impl<'a> Graphemes<'a> for ANSIString<'a> {
     fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {

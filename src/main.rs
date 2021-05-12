@@ -16,12 +16,15 @@ fn main() {
         Color::Cyan.paint(" lol "),
     ];
     let text: Spans = (&texts).into();
+    for span in text.spans() {
+        println!("{}", span);
+    }
     let texts: Vec<Spans> = texts.iter().map(|x| x.into()).collect();
     let ellipsis = Color::Blue.paint("…");
     let ellipsis_span: Spans = (&ellipsis).into();
     let empty = Color::Black.paint("");
     let empty_span: Spans = (&empty).into();
-    let equals = Color::Yellow.paint("=");
+    let equals = Color::Yellow.paint("🏢");
     let g = (&equals).graphemes().next().unwrap();
     let repeat_widget = Repeat::new(g);
     let repeat_text_widget = TextWidget::new(&repeat_widget, TruncationStyle::Left, &empty_span);
@@ -33,7 +36,7 @@ fn main() {
     let widget_refs: Vec<&TextWidget> = widgets.iter().collect();
     let hbox = HBox::new(&widget_refs);
     println!("Result: {}", text);
-    for width in 20..80 {
+    for width in 100..101 {
         println!(
             "widget:         {}",
             hbox.truncate(width).collect::<Spans>()
