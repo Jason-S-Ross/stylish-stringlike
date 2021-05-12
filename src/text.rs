@@ -1,8 +1,8 @@
 pub use self::spans::Spans;
+pub use self::width::Width;
 use ansi_term::{ANSIString, Style};
 use std::fmt;
-use std::iter::Sum;
-use std::ops::{Add, AddAssign, Bound, Deref, RangeBounds};
+use std::ops::{Bound, Deref, RangeBounds};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -11,37 +11,41 @@ pub struct StyledGrapheme<'a> {
     style: &'a Style,
     grapheme: &'a str,
 }
+pub mod width {
+    use std::iter::Sum;
+    use std::ops::{Add, AddAssign};
 
-#[derive(Copy, Clone)]
-pub enum Width {
-    Bounded(usize),
-    Unbounded,
-}
+    #[derive(Copy, Clone)]
+    pub enum Width {
+        Bounded(usize),
+        Unbounded,
+    }
 
-impl Add for Width {
-    type Output = Width;
-    fn add(self, other: Self) -> Self::Output {
-        use Width::{Bounded, Unbounded};
-        match (self, other) {
-            (Unbounded, _) | (_, Unbounded) => Unbounded,
-            (Bounded(left), Bounded(right)) => Bounded(left + right),
+    impl Add for Width {
+        type Output = Width;
+        fn add(self, other: Self) -> Self::Output {
+            use Width::{Bounded, Unbounded};
+            match (self, other) {
+                (Unbounded, _) | (_, Unbounded) => Unbounded,
+                (Bounded(left), Bounded(right)) => Bounded(left + right),
+            }
         }
     }
-}
 
-impl AddAssign for Width {
-    fn add_assign(&mut self, other: Self) {
-        use Width::{Bounded, Unbounded};
-        *self = match (*self, other) {
-            (Unbounded, _) | (_, Unbounded) => Unbounded,
-            (Bounded(left), Bounded(right)) => Bounded(left + right),
-        };
+    impl AddAssign for Width {
+        fn add_assign(&mut self, other: Self) {
+            use Width::{Bounded, Unbounded};
+            *self = match (*self, other) {
+                (Unbounded, _) | (_, Unbounded) => Unbounded,
+                (Bounded(left), Bounded(right)) => Bounded(left + right),
+            };
+        }
     }
-}
 
-impl Sum for Width {
-    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.fold(Width::Bounded(0), |a, b| a + b)
+    impl Sum for Width {
+        fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+            iter.fold(Width::Bounded(0), |a, b| a + b)
+        }
     }
 }
 
