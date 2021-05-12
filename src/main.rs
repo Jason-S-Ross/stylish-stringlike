@@ -11,8 +11,9 @@ fn main() {
     let texts = vec![
         Color::Red.paint("Hello, World! 🌍🌍"),
         Color::Blue.paint("💀💀Here lies Beavis, "),
-        Color::Green.paint("He never "),
-        Color::Cyan.paint("scored"),
+        Color::Green.paint("He never scored."),
+        Color::Yellow.paint(" Very Sad!"),
+        Color::Cyan.paint(" lol "),
     ];
     let text: Spans = (&texts).into();
     let texts: Vec<Spans> = texts.iter().map(|x| x.into()).collect();
@@ -30,7 +31,7 @@ fn main() {
     let widget_refs: Vec<&TextWidget> = widgets.iter().collect();
     let hbox = HBox::new(&widget_refs);
     println!("Result: {}", text);
-    for width in 0..200 {
+    for width in 20..80 {
         println!(
             "widget:         {}",
             hbox.truncate(width).collect::<Spans>()

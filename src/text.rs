@@ -45,12 +45,19 @@ impl Sum for Width {
     }
 }
 
+pub trait HasWidth {
+    fn width(&self) -> Width;
+}
+
 impl<'a> StyledGrapheme<'a> {
-    pub fn width(&self) -> Width {
-        Width::Bounded(self.grapheme.width())
-    }
     pub fn raw(&self) -> String {
         self.grapheme.to_owned()
+    }
+}
+
+impl<'a> HasWidth for StyledGrapheme<'a> {
+    fn width(&self) -> Width {
+        Width::Bounded(self.grapheme.width())
     }
 }
 
@@ -60,6 +67,7 @@ impl<'a> fmt::Display for StyledGrapheme<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct Span<'a> {
     style: Style,
     content: &'a str,
@@ -75,8 +83,7 @@ pub trait Graphemes<'a> {
     fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a>;
 }
 
-pub trait Text<'a>: fmt::Display + Graphemes<'a> {
-    fn width(&'a self) -> Width;
+pub trait Text<'a>: fmt::Display + Graphemes<'a> + HasWidth {
     fn raw(&self) -> String;
     fn slice_width(
         &'a self,
@@ -100,7 +107,7 @@ pub trait Text<'a>: fmt::Display + Graphemes<'a> {
     }
 }
 
-pub trait FiniteText<'a>: Text<'a> {
+pub trait FiniteText<'a>: Text<'a> + fmt::Debug {
     fn bounded_width(&'a self) -> usize {
         match self.width() {
             Width::Bounded(w) => w,
@@ -124,10 +131,13 @@ impl<'a> Graphemes<'a> for Span<'a> {
     }
 }
 
-impl<'a> Text<'a> for Span<'a> {
-    fn width(&'a self) -> Width {
+impl<'a> HasWidth for Span<'a> {
+    fn width(&self) -> Width {
         self.graphemes().map(|x| x.width()).sum()
     }
+}
+
+impl<'a> Text<'a> for Span<'a> {
     fn raw(&self) -> String {
         self.content.to_owned()
     }
@@ -136,6 +146,7 @@ impl<'a> Text<'a> for Span<'a> {
 impl<'a> FiniteText<'a> for Span<'a> {}
 
 #[self_referencing]
+#[derive(Debug)]
 pub struct Spans {
     content: String,
     #[borrows(content)]
@@ -204,10 +215,13 @@ impl<'a> FromIterator<StyledGrapheme<'a>> for Spans {
     }
 }
 
-impl<'a> Text<'a> for Spans {
-    fn width(&'a self) -> Width {
+impl HasWidth for Spans {
+    fn width(&self) -> Width {
         self.graphemes().map(|x| x.width()).sum()
     }
+}
+
+impl<'a> Text<'a> for Spans {
     fn raw(&self) -> String {
         self.borrow_content().to_owned()
     }

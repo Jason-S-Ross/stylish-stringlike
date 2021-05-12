@@ -1,8 +1,8 @@
-use crate::text::{FiniteText, StyledGrapheme, Text, Width};
+use crate::text::{FiniteText, HasWidth, StyledGrapheme, Text, Width};
 use std::fmt;
 use std::ops::Bound;
 
-pub trait Truncatable<'a>: fmt::Display {
+pub trait Truncatable<'a>: fmt::Display + HasWidth + fmt::Debug {
     fn truncate_left(
         &'a self,
         width: usize,
@@ -25,7 +25,7 @@ pub trait Truncatable<'a>: fmt::Display {
     ) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a>;
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum TruncationStyle {
     Left,
     Right,
@@ -33,6 +33,7 @@ pub enum TruncationStyle {
     Outer,
 }
 
+#[derive(Debug)]
 pub struct TextWidget<'a> {
     text: &'a dyn Truncatable<'a>,
     truncation_style: TruncationStyle,
@@ -62,34 +63,9 @@ impl<'a> TextWidget<'a> {
     }
 }
 
-pub struct HBox<'a> {
-    elements: Vec<&'a TextWidget<'a>>,
-}
-
-impl<'a> HBox<'a> {
-    pub fn new(elements: &[&'a TextWidget<'a>]) -> Self {
-        HBox {
-            elements: elements.to_vec(),
-        }
-    }
-    pub fn truncate(&'a self, width: usize) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
-        let w = width / self.elements.len();
-        let rem = width % self.elements.len();
-        Box::new(
-            self.elements
-                .iter()
-                .enumerate()
-                .flat_map(move |(i, widget)| {
-                    let w = if i < rem { w + 1 } else { w };
-                    widget.truncate(w)
-                }),
-        )
-    }
-}
-
 impl<'a, T> Truncatable<'a> for T
 where
-    T: Text<'a>,
+    T: Text<'a> + fmt::Debug,
 {
     fn truncate_left(
         &'a self,
@@ -205,5 +181,60 @@ where
                     .chain(self.slice_width((Bound::Unbounded, Bound::Excluded(w)))),
             )
         }
+    }
+}
+
+pub struct HBox<'a> {
+    elements: Vec<&'a TextWidget<'a>>,
+}
+
+impl<'a> HBox<'a> {
+    pub fn new(elements: &[&'a TextWidget<'a>]) -> Self {
+        HBox {
+            elements: elements.to_vec(),
+        }
+    }
+    pub fn truncate(&'a self, width: usize) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
+        let mut to_fit = self.elements.len();
+        let mut space = width;
+        let mut todo: Vec<(usize, _)> = self.elements.iter().enumerate().collect();
+        let mut widths: std::collections::HashMap<usize, usize> = Default::default();
+
+        while to_fit > 0 {
+            let target_width: f32 = space as f32 / to_fit as f32;
+            let mut to_pop = vec![];
+            for (rel_index, (index, element)) in todo.iter().enumerate() {
+                if let Width::Bounded(w) = element.text.width() {
+                    if (w as f32) <= target_width {
+                        space -= w;
+                        to_fit -= 1;
+                        widths.insert(*index, w);
+                        to_pop.push(rel_index)
+                    }
+                }
+            }
+            for index in to_pop.iter().rev() {
+                todo.remove(*index);
+            }
+            if to_pop.len() == 0 {
+                let target_width = space / todo.len();
+                let rem = space % todo.len();
+                for (i, (index, _widget)) in todo.iter().enumerate() {
+                    let w = if i < rem {
+                        target_width + 1
+                    } else {
+                        target_width
+                    };
+                    widths.insert(*index, w);
+                }
+                break;
+            }
+        }
+        Box::new(
+            self.elements
+                .iter()
+                .enumerate()
+                .flat_map(move |(i, widget)| widget.truncate(widths[&i])),
+        )
     }
 }

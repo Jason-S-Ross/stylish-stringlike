@@ -1,8 +1,9 @@
-use crate::text::{Graphemes, StyledGrapheme, Text, Width};
+use crate::text::{Graphemes, HasWidth, StyledGrapheme, Text, Width};
 use std::fmt;
 use std::iter::repeat;
 use std::ops::{Bound, RangeBounds};
 
+#[derive(Debug)]
 pub struct Repeat<'a> {
     grapheme: StyledGrapheme<'a>,
 }
@@ -25,10 +26,13 @@ impl<'a> Graphemes<'a> for Repeat<'a> {
     }
 }
 
-impl<'a> Text<'a> for Repeat<'a> {
-    fn width(&'a self) -> Width {
+impl<'a> HasWidth for Repeat<'a> {
+    fn width(&self) -> Width {
         Width::Unbounded
     }
+}
+
+impl<'a> Text<'a> for Repeat<'a> {
     fn raw(&self) -> String {
         self.grapheme.raw()
     }
