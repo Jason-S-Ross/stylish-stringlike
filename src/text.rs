@@ -1,32 +1,88 @@
 pub use self::spans::{Span, Spans};
 pub use self::width::Width;
-use ansi_term::{ANSIString, Style};
+pub use self::styled_grapheme::StyledGrapheme;
+pub use self::text::Text;
+use ansi_term::{ANSIString};
 use std::fmt;
-use std::ops::{Bound, Deref, RangeBounds};
+use std::ops::{Deref};
 use unicode_segmentation::UnicodeSegmentation;
-use unicode_width::UnicodeWidthStr;
+use std::borrow::Cow;
 
-#[derive(Clone, Debug)]
-pub struct StyledGrapheme<'a> {
-    style: &'a Style,
-    grapheme: &'a str,
-}
-
-impl<'a> StyledGrapheme<'a> {
-    pub fn raw(&self) -> String {
-        self.grapheme.to_owned()
+pub mod styled_grapheme {
+    use super::*;
+    use ansi_term::Style;
+    use unicode_width::UnicodeWidthStr;
+    #[derive(Clone, Debug)]
+    pub struct StyledGrapheme<'a> {
+        style: Cow<'a, Style>,
+        grapheme: Cow<'a, str>
     }
-}
 
-impl<'a> HasWidth for StyledGrapheme<'a> {
-    fn width(&self) -> Width {
-        Width::Bounded(self.grapheme.width())
+    #[cfg(test)]
+    impl<'a> PartialEq for StyledGrapheme<'a> {
+        fn eq(&self, other: &Self) -> bool {
+            self.style == other.style
+                && self.grapheme == other.grapheme
+        }
     }
-}
 
-impl<'a> fmt::Display for StyledGrapheme<'a> {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        self.style.paint(self.grapheme).fmt(fmt)
+    impl<'a> StyledGrapheme<'a> {
+        pub fn borrowed(style: &'a Style, grapheme: &'a str) -> Self {
+            StyledGrapheme { style: Cow::Borrowed(style), grapheme: Cow::Borrowed(grapheme) }
+        }
+        pub fn owned(style: Style, grapheme: String) -> Self {
+            StyledGrapheme {
+                style: Cow::Owned(style),
+                grapheme: Cow::Owned(grapheme)
+            }
+        }
+        pub fn raw(&self) -> String {
+            self.grapheme.to_string()
+        }
+        pub fn grapheme(&self) -> &Cow<'a, str> {
+            &self.grapheme
+        }
+        pub fn style(&self) -> &Cow<'a, Style> {
+            &self.style
+        }
+    }
+
+    impl<'a> HasWidth for StyledGrapheme<'a> {
+        fn width(&self) -> Width {
+            Width::Bounded(self.grapheme.width())
+        }
+    }
+
+    impl<'a> fmt::Display for StyledGrapheme<'a> {
+        fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+            self.style.paint(self.grapheme.as_ref()).fmt(fmt)
+        }
+    }
+
+    #[cfg(test)]
+    mod test {
+        use super::*;
+        use ansi_term::Color;
+        #[test]
+        fn test_grapheme_raw() {
+            let foo = Color::Blue.paint("foo");
+            let g = foo.graphemes().next().unwrap();
+            assert_eq!(g.raw(), "f");
+        }
+        #[test]
+        fn test_grapheme_width() {
+            let foo = Color::Blue.paint("a⛄👩");
+            let mut graphemes = foo.graphemes();
+            assert_eq!(graphemes.next().unwrap().width(), Width::Bounded(1));
+            assert_eq!(graphemes.next().unwrap().width(), Width::Bounded(2));
+            assert_eq!(graphemes.next().unwrap().width(), Width::Bounded(2));
+        }
+        #[test]
+        fn test_grapheme_fmt() {
+            let foo = Color::Blue.paint("foo");
+            let g = foo.graphemes().next().unwrap();
+            assert_eq!(format!("{}", g), format!("{}", Color::Blue.paint("f")));
+        }
     }
 }
 
@@ -34,7 +90,7 @@ pub mod width {
     use std::iter::Sum;
     use std::ops::{Add, AddAssign};
 
-    #[derive(Copy, Clone)]
+    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
     pub enum Width {
         Bounded(usize),
         Unbounded,
@@ -53,17 +109,61 @@ pub mod width {
 
     impl AddAssign for Width {
         fn add_assign(&mut self, other: Self) {
-            use Width::{Bounded, Unbounded};
-            *self = match (*self, other) {
-                (Unbounded, _) | (_, Unbounded) => Unbounded,
-                (Bounded(left), Bounded(right)) => Bounded(left + right),
-            };
+            *self = *self + other;
         }
+
     }
 
     impl Sum for Width {
         fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
             iter.fold(Width::Bounded(0), |a, b| a + b)
+        }
+    }
+    #[cfg(test)]
+    mod test {
+        use super::*;
+        #[test]
+        fn add_bounded() {
+            let actual = Width::Bounded(4) + Width::Bounded(6);
+            let expected = Width::Bounded(10);
+            assert_eq!(expected, actual);
+        }
+        #[test]
+        fn add_bound_unbound() {
+            let actual = Width::Bounded(4) + Width::Unbounded;
+            let expected = Width::Unbounded;
+            assert_eq!(expected, actual);
+        }
+        #[test]
+        fn add_unbound_bound() {
+            let actual = Width::Unbounded + Width::Bounded(4);
+            let expected = Width::Unbounded;
+            assert_eq!(expected, actual);
+
+        }
+        #[test]
+        fn add_bound_bound() {
+            let actual = Width::Unbounded + Width::Unbounded;
+            let expected = Width::Unbounded;
+            assert_eq!(expected, actual);
+        }
+        #[test]
+        fn sum() {
+            let v = vec![
+                Width::Bounded(5),
+                Width::Bounded(6),
+                Width::Bounded(7),
+            ];
+            let actual: Width = v.iter().cloned().sum();
+            let expected = Width::Bounded(18);
+            assert_eq!(expected, actual);
+        }
+        #[test]
+        fn add_assign() {
+            let mut actual = Width::Bounded(1);
+            actual += Width::Bounded(4);
+            let expected = Width::Bounded(5);
+            assert_eq!(expected, actual);
         }
     }
 }
@@ -76,27 +176,31 @@ pub trait Graphemes<'a> {
     fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a>;
 }
 
-pub trait Text<'a>: fmt::Display + Graphemes<'a> + HasWidth {
-    fn raw(&self) -> String;
-    fn slice_width(
-        &'a self,
-        range: (Bound<usize>, Bound<usize>),
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
-        Box::new(
-            self.graphemes()
-                .scan(0, move |position, g| {
-                    let in_range = range.contains(position);
-                    if let Width::Bounded(w) = g.width() {
-                        *position += w;
-                        Some((g, in_range))
-                    } else {
-                        None
-                    }
-                })
-                .skip_while(|(_g, in_range)| !in_range)
-                .take_while(|(_g, in_range)| *in_range)
-                .map(|(g, _in_range)| g),
-        )
+pub mod text {
+    use super::*;
+    use std::ops::{Bound, RangeBounds};
+    pub trait Text<'a>: fmt::Display + Graphemes<'a> + HasWidth {
+        fn raw(&self) -> String;
+        fn slice_width(
+            &'a self,
+            range: (Bound<usize>, Bound<usize>),
+        ) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
+            Box::new(
+                self.graphemes()
+                    .scan(0, move |position, g| {
+                        if let Width::Bounded(w) = g.width() {
+                            *position += w;
+                            let in_range = range.contains(position);
+                            Some((g, in_range))
+                        } else {
+                            unreachable!("Grapheme with unbounded width!")
+                        }
+                    })
+                    .skip_while(|(_g, in_range)| !in_range)
+                    .take_while(|(_g, in_range)| *in_range)
+                    .map(|(g, _in_range)| g),
+            )
+        }
     }
 }
 
@@ -237,6 +341,83 @@ pub mod spans {
                 Ok(())
             }
         }
+        #[cfg(test)]
+        mod test {
+            use super::*;
+            #[test]
+            fn dedup() {
+                let mut actual = SearchTree::default();
+                actual.insert(1, 3);
+                actual.insert(2, 3);
+                actual.dedup();
+                let mut expected = SearchTree::default();
+                expected.insert(1, 3);
+                assert_eq!(expected, actual);
+            }
+            #[test]
+            fn search_left() {
+                let mut tree = SearchTree::default();
+                tree.insert(1, 2);
+                tree.insert(3, 4);
+                let actual = tree.search_left(&2);
+                let expected = Some(&2);
+                assert_eq!(expected, actual);
+            }
+            #[test]
+            fn search_on() {
+                let mut tree = SearchTree::default();
+                tree.insert(1, 2);
+                tree.insert(3, 4);
+                let actual = tree.search_left(&1);
+                let expected = Some(&2);
+                assert_eq!(expected, actual);
+            }
+            #[test]
+            fn search_missing() {
+                let mut tree = SearchTree::default();
+                tree.insert(1, 2);
+                tree.insert(3, 4);
+                let actual = tree.search_left(&0);
+                let expected = None;
+                assert_eq!(expected, actual);
+            }
+            #[test]
+            fn copy_with_shift_saturating() {
+                let mut tree: SearchTree<usize, usize> = Default::default();
+                tree.insert(1, 2);
+                tree.insert(4, 5);
+                let mut actual: SearchTree<_, _> = Default::default();
+                actual.copy_with_shift(&tree, 0.., -2).unwrap();
+                let mut expected: SearchTree<usize, usize> = Default::default();
+                // since 1 - 2 = -1, coverting back to -1 will fail and we fall back to the original value
+                expected.insert(1, 2);
+                expected.insert(2, 5);
+                assert_eq!(expected, actual);
+            }
+            #[test]
+            fn copy_with_shift() {
+                let mut tree: SearchTree<usize, usize> = Default::default();
+                tree.insert(2, 2);
+                tree.insert(4, 5);
+                let mut actual: SearchTree<_, _> = Default::default();
+                actual.copy_with_shift(&tree, 0.., -1).unwrap();
+                let mut expected: SearchTree<usize, usize> = Default::default();
+                expected.insert(1, 2);
+                expected.insert(3, 5);
+                assert_eq!(expected, actual);
+            }
+            #[test]
+            fn copy_with_shift_fail() {
+                let mut tree: SearchTree<isize, usize> = Default::default();
+                tree.insert(-2, 2);
+                tree.insert(4, 5);
+                let mut actual: SearchTree<isize, _> = Default::default();
+                let offset: usize = 1;
+                // this will fail since we can't cast the offset to the type isize
+                let res = actual.copy_with_shift(&tree, -4..5, offset);
+                assert_eq!(Err(()), res);
+            }
+        }
     }
 
     /// Contains a data structure to represent a segment of a Spans object
@@ -258,10 +439,7 @@ pub mod spans {
                 Box::new(
                     self.content
                         .graphemes(true)
-                        .map(move |grapheme| StyledGrapheme {
-                            style: &self.style,
-                            grapheme,
-                        }),
+                        .map(move |grapheme| StyledGrapheme::borrowed(&self.style, grapheme)),
                 )
             }
         }
@@ -299,7 +477,49 @@ pub mod spans {
             fn convert() {
                 let style = Style::new();
                 let span = Span::new(&style, "foo");
-                let s: ANSIString = (&span).into();
+                let actual: ANSIString = (&span).into();
+                let expected = Style::new().paint("foo");
+                assert_eq!(expected, actual);
+            }
+            #[test]
+            fn fmt() {
+                let style = Style::new();
+                let span = Span::new(&style, "foo");
+                let foo: ANSIString = (&span).into();
+                let actual = format!("{}", span);
+                let expected = format!("{}", foo);
+                assert_eq!(expected, actual);
+            }
+            #[test]
+            fn graphemes() {
+                use ansi_term::Color;
+                let style = Color::Blue.bold();
+                let s = "foo";
+                let span = Span::new(&style, s);
+                let c = &s[..1];
+                let expected = StyledGrapheme::borrowed(&style, c);
+                let actual = span.graphemes().next().unwrap();
+                assert_eq!(expected, actual);
+            }
+            #[test]
+            fn width() {
+                use ansi_term::Color;
+                let style = Color::Blue.bold();
+                let s = "foo";
+                let span = Span::new(&style, s);
+                let expected = Width::Bounded(3);
+                let actual = span.width();
+                assert_eq!(expected, actual);
+            }
+            #[test]
+            fn raw() {
+                use ansi_term::Color;
+                let style = Color::Blue.bold();
+                let s = "foo";
+                let span = Span::new(&style, s);
+                let expected = String::from(s);
+                let actual = span.raw();
+                assert_eq!(expected, actual);
             }
         }
     }
@@ -445,6 +665,8 @@ pub mod spans {
                     if let Some(ref s) = self.content.get(*first_key..second_key) {
                         Some(Span::new(style, s))
                     } else {
+                        // This represents an invalid state in the spans.
+                        // One of the spans is actually out of the range of the length of the string.
                         None
                     }
                 })
@@ -462,7 +684,7 @@ pub mod spans {
                         } else {
                             &self.default_style
                         };
-                        StyledGrapheme { grapheme, style }
+                        StyledGrapheme::borrowed(style, grapheme)
                     }),
             )
         }
@@ -479,15 +701,15 @@ pub mod spans {
             for grapheme in iter {
                 let len = content.len();
                 match last_style {
-                    Some(style) if style == *grapheme.style => {}
+                    Some(style) if &style == grapheme.style().as_ref() => {}
                     _ => {
-                        if let Some(_style) = spans.insert(len, *grapheme.style) {
+                        if let Some(_style) = spans.insert(len, **grapheme.style()) {
                             unreachable!("Failed to insert {:#?} into tree {:#?}", len, spans)
                         }
-                        last_style = Some(*grapheme.style)
+                        last_style = Some(**grapheme.style())
                     }
                 }
-                content.push_str(&grapheme.grapheme);
+                content.push_str(&grapheme.grapheme());
             }
             Spans {
                 content,
@@ -528,7 +750,38 @@ pub mod spans {
     #[cfg(test)]
     mod test {
         use super::*;
+        use std::ops::Bound;
         use ansi_term::{ANSIStrings, Color};
+        #[test]
+        fn test_slice_width() {
+            let texts = vec![Color::Green.paint("foo")];
+            let text: Spans = (&texts).into();
+            let actual: Spans = text.slice_width((Bound::Unbounded, Bound::Included(2))).collect();
+            let texts2 = vec![Color::Green.paint("fo")];
+            let expected: Spans = (&texts2).into();
+            assert_eq!(expected, actual);
+        }
+        #[test]
+        fn test_slice_width_hard() {
+            let texts = vec![Color::Green.paint("👱👱👱")];
+            let text: Spans = (&texts).into();
+            let actual: Spans = text.slice_width((Bound::Unbounded, Bound::Included(3))).collect();
+            let texts2 = vec![Color::Green.paint("👱")];
+            let expected: Spans = (&texts2).into();
+            assert_eq!(expected, actual);
+            let actual: Spans = text.slice_width((Bound::Unbounded, Bound::Included(4))).collect();
+            let texts2 = vec![Color::Green.paint("👱👱")];
+            let expected: Spans = (&texts2).into();
+            assert_eq!(expected, actual);
+        }
+        #[test]
+        fn test_finite_width() {
+            let texts = vec![Color::Green.paint("foo")];
+            let text: Spans = (&texts).into();
+            let expected = 3;
+            let actual = text.bounded_width();
+            assert_eq!(expected, actual);
+        }
         #[test]
         fn build_span() {
             let texts = vec![Color::Green.paint("foo")];
@@ -682,6 +935,72 @@ pub mod spans {
             println!("actual:   {}", new_text);
             assert_eq!(new_text, target_text);
         }
+        #[test]
+        fn replace_regex_empty() {
+            let texts = vec![
+                Color::Red.paint("Here is some f"),
+                Color::Blue.paint("ooo fuuu f"),
+                Color::Green.paint("aaa"),
+            ];
+            let text: Spans = (&texts).into();
+            let new_text = text
+                .replace_regex(&Regex::new("quux").unwrap(), "bar")
+                .unwrap();
+            assert_eq!(new_text, text);
+        }
+        #[test]
+        fn replace_regex_empty_fancy() {
+            let texts = vec![
+                Color::Red.paint("Here is some f"),
+                Color::Blue.paint("ooo fuuu f"),
+                Color::Green.paint("aaa"),
+            ];
+            let text: Spans = (&texts).into();
+            let new_text = text
+                .replace_regex(&Regex::new("([zyx])").unwrap(), "missing $1 letters")
+                .unwrap();
+            assert_eq!(new_text, text);
+        }
+        #[test]
+        fn span() {
+            let texts = vec![
+                Color::Red.paint("Here is some f"),
+                Color::Blue.paint("ooo fuuu f"),
+                Color::Green.paint("aaa"),
+            ];
+            let text: Spans = (&texts).into();
+            let span = text.spans().next().unwrap();
+            let expected = format!("{}", texts[0]);
+            let actual = format!("{}", span);
+            assert_eq!(expected, actual);
+        }
+        #[test]
+        fn graphemes() {
+            let texts = vec![
+                Color::Red.paint("Here is some f"),
+                Color::Blue.paint("ooo fuuu f"),
+                Color::Green.paint("aaa"),
+            ];
+            let text: Spans = (&texts).into();
+            let s = "H";
+            let style = Color::Red.normal();
+            let expected = StyledGrapheme::borrowed(&style, s);
+            let actual = text.graphemes().next().unwrap();
+            assert_eq!(expected, actual);
+        }
+        #[test]
+        fn raw() {
+            let texts = vec![
+                Color::Red.paint("Here is some f"),
+                Color::Blue.paint("ooo fuuu f"),
+                Color::Green.paint("aaa"),
+            ];
+            let text: Spans = (&texts).into();
+
+            let expected = String::from("Here is some fooo fuuu faaa");
+            let actual = text.raw();
+            assert_eq!(expected, actual);
+        }
     }
 }
 
@@ -690,10 +1009,7 @@ impl<'a> Graphemes<'a> for ANSIString<'a> {
         Box::new(
             self.deref()
                 .graphemes(true)
-                .map(move |grapheme| StyledGrapheme {
-                    style: self.style_ref(),
-                    grapheme,
-                }),
+                .map(move |grapheme| StyledGrapheme::borrowed(self.style_ref(), grapheme)),
         )
     }
 }
@@ -704,7 +1020,31 @@ impl<'a> Graphemes<'a> for Vec<ANSIString<'a>> {
             let style = s.style_ref();
             s.deref()
                 .graphemes(true)
-                .map(move |grapheme| StyledGrapheme { style, grapheme })
+                .map(move |grapheme| StyledGrapheme::borrowed(style, grapheme))
         }))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use ansi_term::Color;
+    #[test]
+    fn ansi_string() {
+        let string = "Test";
+        let style = Color::Red.normal();
+        let ansistring = style.paint(string);
+        let expected = StyledGrapheme::borrowed(&style, &string[..1]);
+        let actual = ansistring.graphemes().next().unwrap();
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn ansi_strings() {
+        let string = "Test";
+        let style = Color::Red.normal();
+        let ansistrings = vec![style.paint(string)];
+        let expected = StyledGrapheme::borrowed(&style, &string[..1]);
+        let actual = ansistrings.graphemes().next().unwrap();
+        assert_eq!(expected, actual);
     }
 }
