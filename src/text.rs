@@ -1,4 +1,4 @@
-pub use self::spans::Spans;
+pub use self::spans::{Span, Spans};
 pub use self::width::Width;
 use ansi_term::{ANSIString, Style};
 use std::fmt;
@@ -11,6 +11,25 @@ pub struct StyledGrapheme<'a> {
     style: &'a Style,
     grapheme: &'a str,
 }
+
+impl<'a> StyledGrapheme<'a> {
+    pub fn raw(&self) -> String {
+        self.grapheme.to_owned()
+    }
+}
+
+impl<'a> HasWidth for StyledGrapheme<'a> {
+    fn width(&self) -> Width {
+        Width::Bounded(self.grapheme.width())
+    }
+}
+
+impl<'a> fmt::Display for StyledGrapheme<'a> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        self.style.paint(self.grapheme).fmt(fmt)
+    }
+}
+
 pub mod width {
     use std::iter::Sum;
     use std::ops::{Add, AddAssign};
@@ -51,24 +70,6 @@ pub mod width {
 
 pub trait HasWidth {
     fn width(&self) -> Width;
-}
-
-impl<'a> StyledGrapheme<'a> {
-    pub fn raw(&self) -> String {
-        self.grapheme.to_owned()
-    }
-}
-
-impl<'a> HasWidth for StyledGrapheme<'a> {
-    fn width(&self) -> Width {
-        Width::Bounded(self.grapheme.width())
-    }
-}
-
-impl<'a> fmt::Display for StyledGrapheme<'a> {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        self.style.paint(self.grapheme).fmt(fmt)
-    }
 }
 
 pub trait Graphemes<'a> {
@@ -114,7 +115,7 @@ pub mod spans {
 
     use super::*;
     use ansi_term::Style;
-    use std::convert::TryInto;
+    use regex::{Regex, Replacer};
     use std::iter::FromIterator;
 
     /// Contains a data structure to allow fast lookup of the value to the left.
@@ -123,13 +124,20 @@ pub mod spans {
         use std::collections::btree_map::Iter;
         use std::collections::btree_map::Range;
         use std::collections::BTreeMap;
-        use std::ops::RangeBounds;
+        use std::convert::TryFrom;
+        use std::ops::{Add, RangeBounds};
         /// Data structure to quickly look up the nearest value smaller than a given value.
-        #[derive(Clone, Debug)]
-        pub struct SearchTree<K, V> {
+        #[derive(Clone, Debug, Default)]
+        pub struct SearchTree<K, V>
+        where
+            K: Ord,
+        {
             tree: BTreeMap<K, V>,
         }
-        impl<K, V> SearchTree<K, V> {
+        impl<K, V> SearchTree<K, V>
+        where
+            K: Ord,
+        {
             pub fn new() -> SearchTree<K, V>
             where
                 K: Ord,
@@ -167,6 +175,66 @@ pub mod spans {
             }
             pub fn iter(&self) -> Iter<K, V> {
                 self.tree.iter()
+            }
+            #[allow(dead_code)]
+            pub(super) fn keys(&self) -> Vec<K>
+            where
+                K: Clone,
+            {
+                self.tree.keys().cloned().collect()
+            }
+            /// Drops keys that have the same value as the previous keys
+            fn dedup(&mut self)
+            where
+                V: PartialEq,
+                K: Clone,
+            {
+                let drop_keys: Vec<_> = self
+                    .tree
+                    .iter()
+                    .zip(self.tree.iter().skip(1))
+                    .filter_map(|((_first_key, first_val), (second_key, second_val))| {
+                        if first_val == second_val {
+                            Some(second_key)
+                        } else {
+                            None
+                        }
+                    })
+                    .cloned()
+                    .collect();
+                for key in drop_keys {
+                    self.tree.remove(&key);
+                }
+            }
+            /// Copy values in a range from another tree into this tree,
+            /// shifting the keys by some amount.
+            pub(super) fn copy_with_shift<T, R, S>(
+                &mut self,
+                from: &SearchTree<K, V>,
+                range: R,
+                shift: S,
+            ) -> Result<(), ()>
+            where
+                V: Clone + PartialEq,
+                T: Ord + ?Sized,
+                R: RangeBounds<T>,
+                K: Borrow<T> + Ord + TryFrom<S> + Copy,
+                S: Add<Output = S> + TryFrom<K> + Copy,
+            {
+                let contained_spans = from.range(range);
+                for (key, value) in contained_spans {
+                    if let Ok(add_key) = S::try_from(*key) {
+                        if let Ok(new_key) = K::try_from(add_key + shift) {
+                            self.insert(new_key, value.clone());
+                        } else {
+                            self.insert(*key, value.clone());
+                        }
+                    } else {
+                        return Err(());
+                    }
+                }
+                self.dedup();
+                Ok(())
             }
         }
     }
@@ -218,7 +286,7 @@ pub mod spans {
 
     use search_tree::SearchTree;
 
-    #[derive(Debug)]
+    #[derive(Clone, Default, Debug)]
     pub struct Spans {
         content: String,
         /// Byte-indexed map of spans
@@ -227,58 +295,104 @@ pub mod spans {
     }
 
     impl Spans {
-        pub fn replace(&self, from: &str, to: &str) -> Self {
+        #[allow(dead_code)]
+        pub fn replace(&self, from: &str, to: &str) -> Result<Self, ()> {
             let mut result = String::new();
             let mut spans = SearchTree::<usize, Style>::new();
+            let mut last_start = 0;
             let mut last_end = 0;
             let mut shift_total: isize = 0;
-            let shift_incr: isize = (from.len() - to.len()).try_into().unwrap();
-            let mut last_start = 0;
-            println!(
-                "keys before: {:?}",
-                self.spans.iter().map(|(k, _v)| *k).collect::<Vec<usize>>()
-            );
+            let shift_incr: isize = to.len() as isize - from.len() as isize;
 
             for (start, part) in self.content.match_indices(from) {
-                if let Some(before) = self.content.get(last_end..start) {
-                    result.push_str(before);
-                    result.push_str(to);
-                    let contained_spans = self.spans.range(last_start..start);
-                    println!("last_start: {}, start: {}", last_start, start);
-                    println!(
-                        "contained_spans: {:?}",
-                        contained_spans
-                            .clone()
-                            .map(|(k, _v)| *k)
-                            .collect::<Vec<_>>()
-                    );
-                    for (key, style) in contained_spans {
-                        println!("key: {}", key);
-                        spans.insert((*key as isize + shift_total).try_into().unwrap(), *style);
-                    }
-                    shift_total += shift_incr;
-                    last_end = start + part.len();
-                    last_start = start;
-                }
+                result.push_str(&self.content[last_end..start]);
+                result.push_str(to);
+                spans.copy_with_shift(&self.spans, last_start..=start, shift_total)?;
+                shift_total += shift_incr;
+                last_end = start + part.len();
+                last_start = start;
             }
-            if let Some(after) = self.content.get(last_end..self.content.len()) {
-                result.push_str(after);
-                let contained_spans = self.spans.range(last_start..self.content.len());
-                for (key, style) in contained_spans {
-                    spans.insert((*key as isize + shift_total).try_into().unwrap(), *style);
-                }
-            }
-            println!(
-                "keys after: {:?}",
-                spans.iter().map(|(k, _v)| *k).collect::<Vec<usize>>()
-            );
-            Spans {
+            result.push_str(&self.content[last_end..]);
+            spans.copy_with_shift(&self.spans, last_start.., shift_total)?;
+            Ok(Spans {
                 content: result,
                 spans,
-                default_style: Default::default(),
+                ..*self
+            })
+        }
+        #[allow(dead_code)]
+        pub fn replace_regex<R>(&self, searcher: &Regex, mut replacer: R) -> Result<Self, ()>
+        where
+            R: Replacer,
+        {
+            // Implement the same strategy as regex but it's a pain
+            let mut spans = SearchTree::<usize, Style>::new();
+            let mut result = String::with_capacity(self.content.len());
+            let mut last_start = 0;
+            let mut last_end = 0;
+            let mut shift_total: isize = 0;
+
+            if let Some(replacer) = replacer.no_expansion() {
+                // fast path
+                let repl_len = replacer.len();
+                let mut matches = searcher.find_iter(&self.content).peekable();
+                if matches.peek().is_none() {
+                    return Ok(self.clone());
+                }
+                for mat in matches {
+                    let start = mat.start();
+                    let match_len = mat.end() - start;
+                    let shift_incr = repl_len as isize - match_len as isize;
+                    result.push_str(&self.content[last_end..start]);
+                    result.push_str(&replacer);
+                    spans.copy_with_shift(&self.spans, last_start..=start, shift_total)?;
+                    shift_total += shift_incr;
+                    last_end = mat.end();
+                    last_start = start;
+                }
+                result.push_str(&self.content[last_end..]);
+                spans.copy_with_shift(&self.spans, last_end.., shift_total)?;
+                Ok(Spans {
+                    content: result,
+                    spans,
+                    ..*self
+                })
+            } else {
+                // slow path
+                let mut captures = searcher.captures_iter(&self.content).peekable();
+                if captures.peek().is_none() {
+                    return Ok(self.clone());
+                }
+                for capture in captures {
+                    // unwrap on 0 is OK because captures only report matches
+                    let mat = capture
+                        .get(0)
+                        .expect("Failed to unwrap captures on 0. Possible Regex version issue");
+                    let start = mat.start();
+                    result.push_str(&self.content[last_end..start]);
+                    let shift_incr = {
+                        let before = result.len();
+                        replacer.replace_append(&capture, &mut result);
+                        let after = result.len();
+                        let repl_len = after - before;
+                        let mat_len = mat.end() - mat.start();
+                        repl_len as isize - mat_len as isize
+                    };
+                    spans.copy_with_shift(&self.spans, last_start..=start, shift_total)?;
+                    shift_total += shift_incr;
+                    last_end = mat.end();
+                    last_start = start;
+                }
+                result.push_str(&self.content[last_end..]);
+                spans.copy_with_shift(&self.spans, last_start.., shift_total)?;
+                Ok(Spans {
+                    content: result,
+                    spans,
+                    ..*self
+                })
             }
         }
-        pub fn spans(&self) -> impl Iterator<Item = Span<'_>> {
+        pub fn spans(&self) -> impl Iterator<Item = Span<'_>> + '_ {
             self.spans
                 .iter()
                 .zip(
@@ -383,6 +497,32 @@ pub mod spans {
     }
 
     impl<'a> FiniteText<'a> for Spans {}
+    #[cfg(test)]
+    mod test {
+        use super::*;
+        use ansi_term::{ANSIStrings, Color};
+        #[test]
+        fn build_span() {
+            let texts = vec![Color::Green.paint("foo")];
+            let text: Spans = (&texts).into();
+            let string = ANSIStrings(&texts);
+            assert_eq!(format!("{}", text), format!("{}", string));
+        }
+        #[test]
+        fn build_spans() {
+            let texts = vec![
+                Color::Red.paint("First Last "),
+                Color::Blue.paint("oo some foooo text f"),
+                Color::Green.paint("oooo. \nThis should look like\n"),
+                Color::Red.paint("Here is some ba"),
+                Color::Blue.paint("r some bar text b"),
+                Color::Green.paint("ar"),
+            ];
+            let text: Spans = (&texts).into();
+            let string = ANSIStrings(&texts);
+            assert_eq!(format!("{}", text), format!("{}", string));
+        }
+    }
 }
 
 impl<'a> Graphemes<'a> for ANSIString<'a> {
