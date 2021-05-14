@@ -1,9 +1,15 @@
 mod graphemes;
+mod replaceable;
+mod sliceable;
 mod spans;
+mod splitable;
 mod styled_grapheme;
 mod width;
 pub use graphemes::*;
+pub use replaceable::*;
+pub use sliceable::*;
 pub use spans::*;
+pub use splitable::*;
 use std::fmt;
 pub use styled_grapheme::*;
 pub use width::*;
