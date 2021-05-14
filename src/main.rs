@@ -1,7 +1,4 @@
-mod repeat;
 mod text;
-mod text_widget;
+mod widget;
 
-
-fn main() {
-}
+fn main() {}

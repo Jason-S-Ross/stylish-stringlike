@@ -1,7 +1,6 @@
 use crate::text::{Graphemes, HasWidth, StyledGrapheme, Text, Width};
 use std::fmt;
 use std::iter::repeat;
-use std::ops::{Bound, RangeBounds};
 
 #[derive(Debug)]
 pub struct Repeat<'a> {
@@ -9,6 +8,7 @@ pub struct Repeat<'a> {
 }
 
 impl<'a> Repeat<'a> {
+    #[allow(dead_code)]
     pub fn new(grapheme: StyledGrapheme<'a>) -> Self {
         Repeat { grapheme }
     }
