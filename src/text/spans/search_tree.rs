@@ -1,10 +1,12 @@
+use super::Sliceable;
 /// Contains a data structure to allow fast lookup of the value to the left.
 use std::borrow::Borrow;
 use std::collections::btree_map::Iter;
 use std::collections::btree_map::Range;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
-use std::ops::{Add, RangeBounds};
+use std::ops::{Add, Bound, RangeBounds, Sub};
+use std::slice::SliceIndex;
 /// Data structure to quickly look up the nearest value smaller than a given value.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SearchTree<K, V>
@@ -116,6 +118,61 @@ where
         Ok(())
     }
 }
+
+impl<'a, K, V> Sliceable<'a> for SearchTree<K, V>
+where
+    K: Ord + Clone + Sub<Output = K> + 'a,
+    V: Clone,
+{
+    type Output = Self;
+    type Target = BTreeMap<K, V>;
+    type Index = K;
+    fn slice<R>(&'a self, range: R) -> Self::Output
+    where
+        R: SliceIndex<Self::Target, Output = Self::Target>
+            + std::ops::RangeBounds<Self::Index>
+            + Clone,
+    {
+        if let Some((zero_key, zero_val)) = self.tree.iter().nth(0) {
+            let mut tree: BTreeMap<_, _> = Default::default();
+            let (new_zero_key, new_zero_val) = match range.start_bound() {
+                Bound::Excluded(x) => {
+                    if let Some((k, v)) = self
+                        .tree
+                        .range((Bound::Unbounded, Bound::Included(x)))
+                        .last()
+                    {
+                        (k, v)
+                    } else {
+                        (zero_key, zero_val)
+                    }
+                }
+                Bound::Included(x) => {
+                    if let Some((k, v)) = self
+                        .tree
+                        .range((Bound::Unbounded, Bound::Excluded(x)))
+                        .last()
+                    {
+                        (k, v)
+                    } else {
+                        (zero_key, zero_val)
+                    }
+                }
+                Bound::Unbounded => (zero_key, zero_val),
+            };
+            tree.insert(new_zero_key.clone(), new_zero_val.clone());
+            for (key, val) in self.tree.range(range) {
+                tree.insert(key.clone() - zero_key.clone(), val.clone());
+            }
+            SearchTree { tree }
+        } else {
+            SearchTree {
+                tree: Default::default(),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

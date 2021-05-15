@@ -53,6 +53,15 @@ impl<'a> fmt::Display for StyledGrapheme<'a> {
     }
 }
 
+impl<'a> RawText for StyledGrapheme<'a> {
+    fn raw(&self) -> String {
+        self.grapheme.to_string()
+    }
+    fn raw_ref<'b>(&self) -> &str {
+        &self.grapheme
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

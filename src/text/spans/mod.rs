@@ -1,6 +1,8 @@
 mod search_tree;
 mod span;
-use super::{FiniteText, Graphemes, HasWidth, Replaceable, Sliceable, StyledGrapheme, Text, Width};
+use super::{
+    FiniteText, Graphemes, HasWidth, RawText, Replaceable, Sliceable, StyledGrapheme, Text, Width,
+};
 use ansi_term::{ANSIStrings, Style};
 use regex::{Regex, Replacer};
 use search_tree::SearchTree;
@@ -159,29 +161,36 @@ impl Replaceable<&str> for Spans {
     }
 }
 
-impl<'a, R> Sliceable<'a, R, str> for Spans
-where
-    R: RangeBounds<usize>,
-{
+impl<'a> Sliceable<'a> for Spans {
     type Output = Spans;
-    type Error = ();
-    fn slice(&'a self, range: R) -> Result<Self::Output, Self::Error>
+    type Target = str;
+    type Index = usize;
+    fn slice<R>(&'a self, range: R) -> Self::Output
     where
-        R: SliceIndex<str, Output = str>,
+        R: SliceIndex<Self::Target, Output = Self::Target> + RangeBounds<Self::Index> + Clone,
     {
-        let mut spans = self.spans.clone();
+        let mut spans = SearchTree::default();
         // spans.copy_with_shift(self.spans, range, range.)
         let start = match range.start_bound() {
             Bound::Included(i) => *i,
             Bound::Excluded(i) => i.saturating_sub(1),
             Bound::Unbounded => 0,
         };
-        spans.copy_with_shift(&self.spans, start.., -(start as isize))?;
-        Ok(Spans {
+        spans
+            .copy_with_shift(
+                &self.spans,
+                (Bound::Unbounded, range.end_bound()),
+                -(start as isize),
+            )
+            .expect(
+                "Failed to copy span range with shift. Possible integer overflow or sign issue",
+            );
+        println!("After: {:#?}", spans);
+        Spans {
             content: self.content.as_str()[range].to_string(),
             spans,
             ..*self
-        })
+        }
     }
 }
 
@@ -237,11 +246,16 @@ impl HasWidth for Spans {
     }
 }
 
-impl<'a> Text<'a> for Spans {
+impl RawText for Spans {
     fn raw(&self) -> String {
         self.content.clone()
     }
+    fn raw_ref<'a>(&self) -> &str {
+        &self.content
+    }
 }
+
+impl<'a> Text<'a> for Spans {}
 
 impl<'a, T> From<&'a T> for Spans
 where
@@ -263,6 +277,7 @@ impl<'a> FiniteText<'a> for Spans {}
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::text::Splitable;
     use ansi_term::{ANSIStrings, Color};
     use std::ops::Bound;
     #[test]
@@ -524,7 +539,7 @@ mod test {
     fn slice_start() {
         let texts = vec![Color::Red.paint("01234"), Color::Blue.paint("56789")];
         let text: Spans = (&texts).into();
-        let actual = text.slice(0..8).unwrap();
+        let actual = text.slice(0..8);
         let texts = vec![Color::Red.paint("01234"), Color::Blue.paint("567")];
         let expected: Spans = (&texts).into();
 
@@ -538,7 +553,7 @@ mod test {
             Color::Green.paint("678"),
         ];
         let text: Spans = (&texts).into();
-        let actual = text.slice(2..8).unwrap();
+        let actual = text.slice(2..8);
         let texts = vec![
             Color::Red.paint("2"),
             Color::Blue.paint("345"),
@@ -556,7 +571,7 @@ mod test {
             Color::Green.paint("678"),
         ];
         let text: Spans = (&texts).into();
-        let actual = text.slice(2..).unwrap();
+        let actual = text.slice(2..);
         let texts = vec![
             Color::Red.paint("2"),
             Color::Blue.paint("345"),
@@ -574,7 +589,7 @@ mod test {
             Color::Green.paint("678"),
         ];
         let text: Spans = (&texts).into();
-        let actual = text.slice(..).unwrap();
+        let actual = text.slice(..);
         let texts = vec![
             Color::Red.paint("012"),
             Color::Blue.paint("345"),
@@ -582,6 +597,45 @@ mod test {
         ];
         let expected: Spans = (&texts).into();
 
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn split_outer() {
+        let texts = vec![
+            Color::Black.paint("::"),
+            Color::Red.paint("Some"),
+            Color::Blue.paint("::"),
+            Color::Green.paint("Random"),
+            Color::Cyan.paint("::"),
+            Color::White.paint("Place"),
+            Color::Yellow.paint("::"),
+        ];
+        let spans: Spans = (&texts).into();
+        let actual = spans.split("::").collect::<Vec<_>>();
+        let expected = vec![
+            (None, Some(Spans::from(&texts[0]))),
+            (Some(Spans::from(&texts[1])), Some(Spans::from(&texts[2]))),
+            (Some(Spans::from(&texts[3])), Some(Spans::from(&texts[4]))),
+            (Some(Spans::from(&texts[5])), Some(Spans::from(&texts[6]))),
+        ];
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn split_inner() {
+        let texts = vec![
+            Color::Red.paint("Some"),
+            Color::Blue.paint("::"),
+            Color::Green.paint("Random"),
+            Color::Cyan.paint("::"),
+            Color::White.paint("Place"),
+        ];
+        let spans: Spans = (&texts).into();
+        let actual = spans.split("::").collect::<Vec<_>>();
+        let expected = vec![
+            (Some(Spans::from(&texts[0])), Some(Spans::from(&texts[1]))),
+            (Some(Spans::from(&texts[2])), Some(Spans::from(&texts[3]))),
+            (Some(Spans::from(&texts[4])), None),
+        ];
         assert_eq!(expected, actual);
     }
 }

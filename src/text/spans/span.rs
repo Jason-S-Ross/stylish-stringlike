@@ -1,10 +1,11 @@
 use crate::text::{
-    FiniteText, Graphemes, HasWidth, Replaceable, Sliceable, Splitable, StyledGrapheme, Text, Width,
+    FiniteText, Graphemes, HasWidth, RawText, Replaceable, Sliceable, StyledGrapheme, Text, Width,
 };
 use ansi_term::{ANSIString, Style};
 use regex::{Regex, Replacer};
 use std::borrow::Cow;
 use std::fmt;
+use std::ops::RangeBounds;
 use std::slice::SliceIndex;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -33,9 +34,13 @@ impl<'a> HasWidth for Span<'a> {
         self.graphemes().map(|x| x.width()).sum()
     }
 }
-impl<'a> Text<'a> for Span<'a> {
+impl<'a> Text<'a> for Span<'a> {}
+impl<'a> RawText for Span<'a> {
     fn raw(&self) -> String {
         self.content.to_owned().to_string()
+    }
+    fn raw_ref<'b>(&self) -> &str {
+        &self.content
     }
 }
 impl<'a> FiniteText<'a> for Span<'a> {}
@@ -79,76 +84,25 @@ impl<'a> Replaceable<&str> for Span<'a> {
         ))
     }
 }
-impl<'a, R> Sliceable<'a, R, str> for Span<'a> {
+impl<'a> Sliceable<'a> for Span<'a> {
     type Output = Span<'a>;
-    type Error = ();
-    fn slice(&'a self, range: R) -> Result<Self::Output, Self::Error>
+    type Target = str;
+    type Index = usize;
+    fn slice<R>(&'a self, range: R) -> Self::Output
     where
-        R: SliceIndex<str, Output = str>,
+        R: SliceIndex<Self::Target, Output = Self::Target> + RangeBounds<Self::Index> + Clone,
     {
-        Ok(Span {
+        Span {
             style: self.style.clone(),
             content: Cow::Borrowed(&self.content[range]),
-        })
-    }
-}
-impl<'a> Splitable<'a, &'a str> for Span<'a> {
-    type Delim = Self;
-    type Result = Self;
-    #[allow(clippy::type_complexity)]
-    fn split(
-        &'a self,
-        pattern: &'a str,
-    ) -> Box<dyn Iterator<Item = (Option<Self::Result>, Option<Self::Delim>)> + 'a> {
-        use std::iter::once;
-        Box::new(
-            (&self.content)
-                .match_indices(pattern)
-                // This is a silly hack to flag when we get to the last element in the list.
-                // Items in the list will be Some.
-                .map(Some)
-                // The last item will be None.
-                .chain(once(None))
-                .scan(0, move |last_end, item| {
-                    if let Some((start, pat)) = item {
-                        let end = start + pat.len();
-                        let delim = self.slice(start..end).expect("Failed to slice span");
-                        let res = if start == 0 {
-                            // String starts with delimiter
-                            Some((None, Some(delim)))
-                        } else {
-                            Some((
-                                Some(self.slice(*last_end..start).expect("Failed to slice span")),
-                                Some(delim),
-                            ))
-                        };
-                        *last_end = end;
-                        res
-                    } else {
-                        // This is the last item.
-                        if *last_end == self.content.len() {
-                            // After consuming the last match, we are at the end of the string
-                            None
-                        } else {
-                            // After consuming the last match, we still have some string yet
-                            Some((
-                                Some(
-                                    self.slice(*last_end..)
-                                        .expect("Failed to slice last element"),
-                                ),
-                                None,
-                            ))
-                        }
-                    }
-                }),
-        )
+        }
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::text::Sliceable;
+    use crate::text::{Sliceable, Splitable};
     use ansi_term::Color;
     use std::cmp::{Eq, PartialEq};
 
@@ -223,7 +177,7 @@ mod test {
     fn slice() {
         let span = Span::owned(Color::Blue.bold(), String::from("0123456789"));
         let expected = Span::owned(Color::Blue.bold(), String::from("0123"));
-        let actual = span.slice(0..4).unwrap();
+        let actual = span.slice(0..4);
         assert_eq!(expected, actual);
     }
     #[test]

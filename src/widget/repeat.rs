@@ -1,4 +1,4 @@
-use crate::text::{Graphemes, HasWidth, StyledGrapheme, Text, Width};
+use crate::text::{Graphemes, HasWidth, RawText, StyledGrapheme, Text, Width};
 use std::fmt;
 use std::iter::repeat;
 
@@ -32,8 +32,13 @@ impl<'a> HasWidth for Repeat<'a> {
     }
 }
 
-impl<'a> Text<'a> for Repeat<'a> {
+impl<'a> Text<'a> for Repeat<'a> {}
+
+impl<'a> RawText for Repeat<'a> {
     fn raw(&self) -> String {
         self.grapheme.raw()
+    }
+    fn raw_ref<'b>(&self) -> &str {
+        self.grapheme.raw_ref()
     }
 }

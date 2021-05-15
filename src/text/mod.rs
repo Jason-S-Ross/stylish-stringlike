@@ -15,8 +15,11 @@ pub use styled_grapheme::*;
 pub use width::*;
 
 use std::ops::{Bound, RangeBounds};
-pub trait Text<'a>: fmt::Display + Graphemes<'a> + HasWidth {
+pub trait RawText {
     fn raw(&self) -> String;
+    fn raw_ref(&self) -> &str;
+}
+pub trait Text<'a>: fmt::Display + Graphemes<'a> + HasWidth + RawText {
     fn slice_width(
         &'a self,
         range: (Bound<usize>, Bound<usize>),
