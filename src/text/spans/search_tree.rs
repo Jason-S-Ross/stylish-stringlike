@@ -6,7 +6,6 @@ use std::collections::btree_map::Range;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::ops::{Add, Bound, RangeBounds, Sub};
-use std::slice::SliceIndex;
 /// Data structure to quickly look up the nearest value smaller than a given value.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SearchTree<K, V>
@@ -121,54 +120,49 @@ where
 
 impl<'a, K, V> Sliceable<'a> for SearchTree<K, V>
 where
-    K: Ord + Clone + Sub<Output = K> + 'a,
+    K: Ord + Clone + Sub<Output = K> + 'a + std::fmt::Debug,
     V: Clone,
 {
     type Output = Self;
-    type Target = BTreeMap<K, V>;
     type Index = K;
-    fn slice<R>(&'a self, range: R) -> Self::Output
+    fn slice<R>(&'a self, range: R) -> Option<Self::Output>
     where
-        R: SliceIndex<Self::Target, Output = Self::Target>
-            + std::ops::RangeBounds<Self::Index>
-            + Clone,
+        R: std::ops::RangeBounds<Self::Index> + Clone,
     {
-        if let Some((zero_key, zero_val)) = self.tree.iter().nth(0) {
+        if let Some((zero_key, zero_val)) = self.tree.iter().next() {
             let mut tree: BTreeMap<_, _> = Default::default();
             let (new_zero_key, new_zero_val) = match range.start_bound() {
                 Bound::Excluded(x) => {
-                    if let Some((k, v)) = self
+                    if let Some((_k, v)) = self
                         .tree
                         .range((Bound::Unbounded, Bound::Included(x)))
                         .last()
                     {
-                        (k, v)
+                        (x.clone(), v)
                     } else {
-                        (zero_key, zero_val)
+                        (zero_key.clone(), zero_val)
                     }
                 }
                 Bound::Included(x) => {
-                    if let Some((k, v)) = self
+                    if let Some((_k, v)) = self
                         .tree
                         .range((Bound::Unbounded, Bound::Excluded(x)))
                         .last()
                     {
-                        (k, v)
+                        (x.clone(), v)
                     } else {
-                        (zero_key, zero_val)
+                        (zero_key.clone(), zero_val)
                     }
                 }
-                Bound::Unbounded => (zero_key, zero_val),
+                Bound::Unbounded => (zero_key.clone(), zero_val),
             };
-            tree.insert(new_zero_key.clone(), new_zero_val.clone());
+            tree.insert(zero_key.clone(), new_zero_val.clone());
             for (key, val) in self.tree.range(range) {
-                tree.insert(key.clone() - zero_key.clone(), val.clone());
+                tree.insert(key.clone() - new_zero_key.clone(), val.clone());
             }
-            SearchTree { tree }
+            Some(SearchTree { tree })
         } else {
-            SearchTree {
-                tree: Default::default(),
-            }
+            None
         }
     }
 }
@@ -248,5 +242,64 @@ mod test {
         // this will fail since we can't cast the offset to the type isize
         let res = actual.copy_with_shift(&tree, -4..5, offset);
         assert_eq!(Err(()), res);
+    }
+    #[test]
+    fn slice_to_zero() {
+        let mut tree: SearchTree<usize, usize> = Default::default();
+        tree.insert(2, 2);
+        tree.insert(4, 5);
+        let actual = tree.slice(2..).unwrap();
+        let mut expected: SearchTree<usize, usize> = Default::default();
+        expected.insert(0, 2);
+        expected.insert(2, 5);
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn slice_to_one() {
+        let mut tree: SearchTree<usize, usize> = Default::default();
+        tree.insert(0, 1);
+        tree.insert(2, 2);
+        tree.insert(4, 5);
+        let actual = tree.slice(1..).unwrap();
+        let mut expected: SearchTree<usize, usize> = Default::default();
+        expected.insert(0, 1);
+        expected.insert(1, 2);
+        expected.insert(3, 5);
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn slice_to_three() {
+        let mut tree: SearchTree<usize, usize> = Default::default();
+        tree.insert(0, 1);
+        tree.insert(2, 2);
+        tree.insert(4, 5);
+        let actual = tree.slice(3..).unwrap();
+        let mut expected: SearchTree<usize, usize> = Default::default();
+        expected.insert(0, 2);
+        expected.insert(1, 5);
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn slice_unbounded_start() {
+        let mut tree: SearchTree<usize, usize> = Default::default();
+        tree.insert(0, 1);
+        tree.insert(2, 2);
+        tree.insert(4, 5);
+        let actual = tree.slice(..2).unwrap();
+        let mut expected: SearchTree<usize, usize> = Default::default();
+        expected.insert(0, 1);
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn slice_unbounded_start_inclusive() {
+        let mut tree: SearchTree<usize, usize> = Default::default();
+        tree.insert(0, 1);
+        tree.insert(2, 2);
+        tree.insert(4, 5);
+        let actual = tree.slice(..=2).unwrap();
+        let mut expected: SearchTree<usize, usize> = Default::default();
+        expected.insert(0, 1);
+        expected.insert(2, 2);
+        assert_eq!(expected, actual);
     }
 }

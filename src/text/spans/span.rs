@@ -1,12 +1,12 @@
 use crate::text::{
-    FiniteText, Graphemes, HasWidth, RawText, Replaceable, Sliceable, StyledGrapheme, Text, Width,
+    slice_string, FiniteText, Graphemes, HasWidth, RawText, Replaceable, Sliceable, StyledGrapheme,
+    Text, Width,
 };
 use ansi_term::{ANSIString, Style};
 use regex::{Regex, Replacer};
 use std::borrow::Cow;
 use std::fmt;
 use std::ops::RangeBounds;
-use std::slice::SliceIndex;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug)]
@@ -86,15 +86,19 @@ impl<'a> Replaceable<&str> for Span<'a> {
 }
 impl<'a> Sliceable<'a> for Span<'a> {
     type Output = Span<'a>;
-    type Target = str;
     type Index = usize;
-    fn slice<R>(&'a self, range: R) -> Self::Output
+    fn slice<R>(&'a self, range: R) -> Option<Self::Output>
     where
-        R: SliceIndex<Self::Target, Output = Self::Target> + RangeBounds<Self::Index> + Clone,
+        R: RangeBounds<Self::Index> + Clone,
     {
-        Span {
-            style: self.style.clone(),
-            content: Cow::Borrowed(&self.content[range]),
+        let s = slice_string(&self.content, range);
+        if let Some(s) = s {
+            Some(Span {
+                style: self.style.clone(),
+                content: Cow::Borrowed(s),
+            })
+        } else {
+            None
         }
     }
 }
@@ -177,7 +181,7 @@ mod test {
     fn slice() {
         let span = Span::owned(Color::Blue.bold(), String::from("0123456789"));
         let expected = Span::owned(Color::Blue.bold(), String::from("0123"));
-        let actual = span.slice(0..4);
+        let actual = span.slice(0..4).unwrap();
         assert_eq!(expected, actual);
     }
     #[test]

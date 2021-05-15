@@ -1,7 +1,8 @@
 mod search_tree;
 mod span;
 use super::{
-    FiniteText, Graphemes, HasWidth, RawText, Replaceable, Sliceable, StyledGrapheme, Text, Width,
+    slice_string, FiniteText, Graphemes, HasWidth, RawText, Replaceable, Sliceable, StyledGrapheme,
+    Text, Width,
 };
 use ansi_term::{ANSIStrings, Style};
 use regex::{Regex, Replacer};
@@ -9,8 +10,7 @@ use search_tree::SearchTree;
 pub use span::Span;
 use std::fmt;
 use std::iter::FromIterator;
-use std::ops::{Bound, RangeBounds};
-use std::slice::SliceIndex;
+use std::ops::RangeBounds;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone, Default, Debug)]
@@ -163,33 +163,21 @@ impl Replaceable<&str> for Spans {
 
 impl<'a> Sliceable<'a> for Spans {
     type Output = Spans;
-    type Target = str;
     type Index = usize;
-    fn slice<R>(&'a self, range: R) -> Self::Output
+    fn slice<R>(&'a self, range: R) -> Option<Self::Output>
     where
-        R: SliceIndex<Self::Target, Output = Self::Target> + RangeBounds<Self::Index> + Clone,
+        R: RangeBounds<Self::Index> + Clone,
     {
-        let mut spans = SearchTree::default();
-        // spans.copy_with_shift(self.spans, range, range.)
-        let start = match range.start_bound() {
-            Bound::Included(i) => *i,
-            Bound::Excluded(i) => i.saturating_sub(1),
-            Bound::Unbounded => 0,
-        };
-        spans
-            .copy_with_shift(
-                &self.spans,
-                (Bound::Unbounded, range.end_bound()),
-                -(start as isize),
-            )
-            .expect(
-                "Failed to copy span range with shift. Possible integer overflow or sign issue",
-            );
-        println!("After: {:#?}", spans);
-        Spans {
-            content: self.content.as_str()[range].to_string(),
-            spans,
-            ..*self
+        let spans = self.spans.slice(range.clone());
+        let string = slice_string(&self.content, range);
+        if let (Some(string), Some(spans)) = (string, spans) {
+            Some(Spans {
+                content: string.to_string(),
+                spans,
+                ..*self
+            })
+        } else {
+            None
         }
     }
 }
@@ -539,7 +527,7 @@ mod test {
     fn slice_start() {
         let texts = vec![Color::Red.paint("01234"), Color::Blue.paint("56789")];
         let text: Spans = (&texts).into();
-        let actual = text.slice(0..8);
+        let actual = text.slice(0..8).unwrap();
         let texts = vec![Color::Red.paint("01234"), Color::Blue.paint("567")];
         let expected: Spans = (&texts).into();
 
@@ -553,7 +541,7 @@ mod test {
             Color::Green.paint("678"),
         ];
         let text: Spans = (&texts).into();
-        let actual = text.slice(2..8);
+        let actual = text.slice(2..8).unwrap();
         let texts = vec![
             Color::Red.paint("2"),
             Color::Blue.paint("345"),
@@ -571,7 +559,7 @@ mod test {
             Color::Green.paint("678"),
         ];
         let text: Spans = (&texts).into();
-        let actual = text.slice(2..);
+        let actual = text.slice(2..).unwrap();
         let texts = vec![
             Color::Red.paint("2"),
             Color::Blue.paint("345"),
@@ -589,7 +577,7 @@ mod test {
             Color::Green.paint("678"),
         ];
         let text: Spans = (&texts).into();
-        let actual = text.slice(..);
+        let actual = text.slice(..).unwrap();
         let texts = vec![
             Color::Red.paint("012"),
             Color::Blue.paint("345"),

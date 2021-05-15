@@ -15,7 +15,7 @@ pub trait Splitable<'a, T> {
 
 impl<'a, T> Splitable<'a, &'a str> for T
 where
-    T: Sliceable<'a, Output = T, Target = str, Index = usize> + RawText,
+    T: Sliceable<'a, Output = T, Index = usize> + RawText,
 {
     type Delim = Self;
     type Segment = Self;
@@ -35,13 +35,12 @@ where
                 .scan(0, move |last_end, item| {
                     if let Some((start, pat)) = item {
                         let end = start + pat.len();
-                        println!("start: {}, pat: {}, end: {}", start, pat, end);
                         let delim = self.slice(start..end);
                         let res = if start == 0 {
                             // String starts with delimiter
-                            Some((None, Some(delim)))
+                            Some((None, delim))
                         } else {
-                            Some((Some(self.slice(*last_end..start)), Some(delim)))
+                            Some((self.slice(*last_end..start), delim))
                         };
                         *last_end = end;
                         res
@@ -52,7 +51,7 @@ where
                             None
                         } else {
                             // After consuming the last match, we still have some string yet
-                            Some((Some(self.slice(*last_end..)), None))
+                            Some((self.slice(*last_end..), None))
                         }
                     }
                 }),
