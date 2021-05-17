@@ -2,19 +2,22 @@ use crate::text::{HasWidth, StyledGrapheme, Width};
 use crate::widget::TextWidget;
 
 #[allow(dead_code)]
-pub struct HBox<'a> {
-    elements: Vec<&'a TextWidget<'a>>,
+pub struct HBox<'a, T: Clone> {
+    elements: Vec<&'a TextWidget<'a, T>>,
 }
 
-impl<'a> HBox<'a> {
+impl<'a, T: Clone> HBox<'a, T> {
     #[allow(dead_code)]
-    pub fn new(elements: &[&'a TextWidget<'a>]) -> Self {
+    pub fn new(elements: &[&'a TextWidget<'a, T>]) -> Self {
         HBox {
             elements: elements.to_vec(),
         }
     }
     #[allow(dead_code)]
-    pub fn truncate(&'a self, width: usize) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
+    pub fn truncate(
+        &'a self,
+        width: usize,
+    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, T>> + 'a> {
         let mut space = width;
         let mut todo: Vec<(usize, _)> = self
             .elements

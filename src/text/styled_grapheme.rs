@@ -4,27 +4,26 @@ use std::borrow::Cow;
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Clone, Debug)]
-pub struct StyledGrapheme<'a> {
-    style: Cow<'a, Style>,
+pub struct StyledGrapheme<'a, T: Clone> {
+    style: Cow<'a, T>,
     grapheme: Cow<'a, str>,
 }
 
-#[cfg(test)]
-impl<'a> PartialEq for StyledGrapheme<'a> {
+impl<'a, T: PartialEq + Clone> PartialEq for StyledGrapheme<'a, T> {
     fn eq(&self, other: &Self) -> bool {
         self.style == other.style && self.grapheme == other.grapheme
     }
 }
 
-impl<'a> StyledGrapheme<'a> {
-    pub fn borrowed(style: &'a Style, grapheme: &'a str) -> Self {
+impl<'a, T: Clone> StyledGrapheme<'a, T> {
+    pub fn borrowed(style: &'a T, grapheme: &'a str) -> Self {
         StyledGrapheme {
             style: Cow::Borrowed(style),
             grapheme: Cow::Borrowed(grapheme),
         }
     }
     #[allow(dead_code)]
-    pub fn owned(style: Style, grapheme: String) -> Self {
+    pub fn owned(style: T, grapheme: String) -> Self {
         StyledGrapheme {
             style: Cow::Owned(style),
             grapheme: Cow::Owned(grapheme),
@@ -36,24 +35,24 @@ impl<'a> StyledGrapheme<'a> {
     pub fn grapheme(&self) -> &Cow<'a, str> {
         &self.grapheme
     }
-    pub fn style(&self) -> &Cow<'a, Style> {
+    pub fn style(&self) -> &Cow<'a, T> {
         &self.style
     }
 }
 
-impl<'a> HasWidth for StyledGrapheme<'a> {
+impl<'a, T: Clone> HasWidth for StyledGrapheme<'a, T> {
     fn width(&self) -> Width {
         Width::Bounded(self.grapheme.width())
     }
 }
 
-impl<'a> fmt::Display for StyledGrapheme<'a> {
+impl<'a> fmt::Display for StyledGrapheme<'a, Style> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         self.style.paint(self.grapheme.as_ref()).fmt(fmt)
     }
 }
 
-impl<'a> RawText for StyledGrapheme<'a> {
+impl<'a, T: Clone> RawText for StyledGrapheme<'a, T> {
     fn raw(&self) -> String {
         self.grapheme.to_string()
     }

@@ -18,13 +18,13 @@ mod test {
         let style = Color::Red.normal();
         let content = "0123456";
         let string = style.paint(content);
-        let text: Spans = (&string).into();
+        let text: Spans<_> = (&string).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Left, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(4).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(4).collect::<Spans<_>>());
         let expected = format!("{}", ANSIStrings(&[style.paint("012"), ellipsis]));
         assert_eq!(expected, actual);
     }
@@ -35,13 +35,13 @@ mod test {
         let content0 = "0123456";
         let content1 = "789";
         let texts = vec![style0.paint(content0), style1.paint(content1)];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Left, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(4).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(4).collect::<Spans<_>>());
         let expected = format!("{}", ANSIStrings(&[style0.paint("012"), ellipsis]));
         assert_eq!(expected, actual);
     }
@@ -52,13 +52,13 @@ mod test {
         let content0 = "0123456";
         let content1 = "789";
         let texts = vec![style0.paint(content0), style1.paint(content1)];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Left, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(9).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(9).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[style0.paint(content0), style1.paint("7"), ellipsis])
@@ -72,18 +72,18 @@ mod test {
         let content0 = "01234";
         let content1 = "56789";
         let first_text = style0.paint(content0);
-        let first_span: Spans = (&first_text).into();
+        let first_span: Spans<_> = (&first_text).into();
         let second_text = style1.paint(content1);
-        let second_span: Spans = (&second_text).into();
+        let second_span: Spans<_> = (&second_text).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget_container = vec![
             TextWidget::new(&first_span, TruncationStyle::Left, &ellipsis_span),
             TextWidget::new(&second_span, TruncationStyle::Left, &ellipsis_span),
         ];
         let widgets = widget_container.iter().collect::<Vec<_>>();
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(8).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(8).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[
@@ -100,13 +100,13 @@ mod test {
         let style = Color::Red.normal();
         let content = "0123456";
         let string = style.paint(content);
-        let text: Spans = (&string).into();
+        let text: Spans<_> = (&string).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Left, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(7).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(7).collect::<Spans<_>>());
         let expected = format!("{}", ANSIStrings(&[string]));
         assert_eq!(expected, actual);
     }
@@ -115,12 +115,12 @@ mod test {
         let repeat_widget =
             Repeat::new(StyledGrapheme::owned(Color::Blue.normal(), "=".to_string()));
         let truncator = Color::Black.paint(".");
-        let truncator_span: Spans = (&truncator).into();
+        let truncator_span: Spans<_> = (&truncator).into();
         let repeat_text_widget =
             TextWidget::new(&repeat_widget, TruncationStyle::Left, &truncator_span);
         let widgets = vec![&repeat_text_widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(5).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(5).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[Color::Blue.normal().paint("===="), truncator.clone(),])
@@ -132,13 +132,13 @@ mod test {
         let style = Color::Red.normal();
         let content = "0123456";
         let string = style.paint(content);
-        let text: Spans = (&string).into();
+        let text: Spans<_> = (&string).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Right, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(4).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(4).collect::<Spans<_>>());
         let expected = format!("{}", ANSIStrings(&[ellipsis, style.paint("456")]));
         assert_eq!(expected, actual);
     }
@@ -149,13 +149,13 @@ mod test {
         let content0 = "0123456";
         let content1 = "789";
         let texts = vec![style0.paint(content0), style1.paint(content1)];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Right, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(6).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(6).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[ellipsis, style0.paint("56"), style1.paint("789"),])
@@ -169,13 +169,13 @@ mod test {
         let content0 = "0123456";
         let content1 = "789";
         let texts = vec![style0.paint(content0), style1.paint(content1)];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Right, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(9).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(9).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[ellipsis, style0.paint("23456"), style1.paint(content1),])
@@ -189,18 +189,18 @@ mod test {
         let content0 = "01234";
         let content1 = "56789";
         let first_text = style0.paint(content0);
-        let first_span: Spans = (&first_text).into();
+        let first_span: Spans<_> = (&first_text).into();
         let second_text = style1.paint(content1);
-        let second_span: Spans = (&second_text).into();
+        let second_span: Spans<_> = (&second_text).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget_container = vec![
             TextWidget::new(&first_span, TruncationStyle::Right, &ellipsis_span),
             TextWidget::new(&second_span, TruncationStyle::Right, &ellipsis_span),
         ];
         let widgets = widget_container.iter().collect::<Vec<_>>();
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(8).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(8).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[
@@ -217,13 +217,13 @@ mod test {
         let style = Color::Red.normal();
         let content = "0123456";
         let string = style.paint(content);
-        let text: Spans = (&string).into();
+        let text: Spans<_> = (&string).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Right, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(7).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(7).collect::<Spans<_>>());
         let expected = format!("{}", ANSIStrings(&[string]));
         assert_eq!(expected, actual);
     }
@@ -232,12 +232,12 @@ mod test {
         let repeat_widget =
             Repeat::new(StyledGrapheme::owned(Color::Blue.normal(), "=".to_string()));
         let truncator = Color::Black.paint(".");
-        let truncator_span: Spans = (&truncator).into();
+        let truncator_span: Spans<_> = (&truncator).into();
         let repeat_text_widget =
             TextWidget::new(&repeat_widget, TruncationStyle::Right, &truncator_span);
         let widgets = vec![&repeat_text_widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(5).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(5).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[truncator.clone(), Color::Blue.normal().paint("===="),])
@@ -249,13 +249,13 @@ mod test {
         let style = Color::Red.normal();
         let content = "0123456";
         let string = style.paint(content);
-        let text: Spans = (&string).into();
+        let text: Spans<_> = (&string).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Inner, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(4).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(4).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[style.paint("01"), ellipsis, style.paint("6")])
@@ -269,13 +269,13 @@ mod test {
         let content0 = "01234";
         let content1 = "56789";
         let texts = vec![style0.paint(content0), style1.paint(content1)];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Inner, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(6).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(6).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[style0.paint("012"), ellipsis, style1.paint("89"),])
@@ -289,13 +289,13 @@ mod test {
         let content0 = "0123456";
         let content1 = "789";
         let texts = vec![style0.paint(content0), style1.paint(content1)];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Inner, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(9).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(9).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[
@@ -314,18 +314,18 @@ mod test {
         let content0 = "01234";
         let content1 = "56789";
         let first_text = style0.paint(content0);
-        let first_span: Spans = (&first_text).into();
+        let first_span: Spans<_> = (&first_text).into();
         let second_text = style1.paint(content1);
-        let second_span: Spans = (&second_text).into();
+        let second_span: Spans<_> = (&second_text).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget_container = vec![
             TextWidget::new(&first_span, TruncationStyle::Inner, &ellipsis_span),
             TextWidget::new(&second_span, TruncationStyle::Inner, &ellipsis_span),
         ];
         let widgets = widget_container.iter().collect::<Vec<_>>();
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(8).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(8).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[
@@ -344,13 +344,13 @@ mod test {
         let style = Color::Red.normal();
         let content = "0123456";
         let string = style.paint(content);
-        let text: Spans = (&string).into();
+        let text: Spans<_> = (&string).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Inner, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(7).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(7).collect::<Spans<_>>());
         let expected = format!("{}", ANSIStrings(&[string]));
         assert_eq!(expected, actual);
     }
@@ -359,12 +359,12 @@ mod test {
         let repeat_widget =
             Repeat::new(StyledGrapheme::owned(Color::Blue.normal(), "=".to_string()));
         let truncator = Color::Black.paint(".");
-        let truncator_span: Spans = (&truncator).into();
+        let truncator_span: Spans<_> = (&truncator).into();
         let repeat_text_widget =
             TextWidget::new(&repeat_widget, TruncationStyle::Inner, &truncator_span);
         let widgets = vec![&repeat_text_widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(5).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(5).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[
@@ -380,13 +380,13 @@ mod test {
         let style = Color::Red.normal();
         let content = "0123456";
         let string = style.paint(content);
-        let text: Spans = (&string).into();
+        let text: Spans<_> = (&string).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Outer, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(4).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(4).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[ellipsis.clone(), style.paint("23"), ellipsis.clone(),])
@@ -398,13 +398,13 @@ mod test {
         let style = Color::Red.normal();
         let content = "01234567";
         let string = style.paint(content);
-        let text: Spans = (&string).into();
+        let text: Spans<_> = (&string).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Outer, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(4).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(4).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[ellipsis.clone(), style.paint("34"), ellipsis.clone(),])
@@ -416,13 +416,13 @@ mod test {
         let style = Color::Red.normal();
         let content = "01234567";
         let string = style.paint(content);
-        let text: Spans = (&string).into();
+        let text: Spans<_> = (&string).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Outer, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(5).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(5).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[ellipsis.clone(), style.paint("234"), ellipsis.clone(),])
@@ -434,13 +434,13 @@ mod test {
         let style = Color::Red.normal();
         let content = "0123456";
         let string = style.paint(content);
-        let text: Spans = (&string).into();
+        let text: Spans<_> = (&string).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Outer, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(5).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(5).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[ellipsis.clone(), style.paint("234"), ellipsis.clone(),])
@@ -454,13 +454,13 @@ mod test {
         let content0 = "01234";
         let content1 = "56789";
         let texts = vec![style0.paint(content0), style1.paint(content1)];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Outer, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(6).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(6).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[
@@ -479,13 +479,13 @@ mod test {
         let content0 = "0123456";
         let content1 = "789";
         let texts = vec![style0.paint(content0), style1.paint(content1)];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Outer, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(8).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(8).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[
@@ -504,18 +504,18 @@ mod test {
         let content0 = "01234";
         let content1 = "56789";
         let first_text = style0.paint(content0);
-        let first_span: Spans = (&first_text).into();
+        let first_span: Spans<_> = (&first_text).into();
         let second_text = style1.paint(content1);
-        let second_span: Spans = (&second_text).into();
+        let second_span: Spans<_> = (&second_text).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget_container = vec![
             TextWidget::new(&first_span, TruncationStyle::Outer, &ellipsis_span),
             TextWidget::new(&second_span, TruncationStyle::Outer, &ellipsis_span),
         ];
         let widgets = widget_container.iter().collect::<Vec<_>>();
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(8).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(8).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[
@@ -534,13 +534,13 @@ mod test {
         let style = Color::Red.normal();
         let content = "0123456";
         let string = style.paint(content);
-        let text: Spans = (&string).into();
+        let text: Spans<_> = (&string).into();
         let ellipsis = Color::Blue.paint("…");
-        let ellipsis_span: Spans = (&ellipsis).into();
+        let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget = TextWidget::new(&text, TruncationStyle::Outer, &ellipsis_span);
         let widgets = vec![&widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(7).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(7).collect::<Spans<_>>());
         let expected = format!("{}", ANSIStrings(&[string]));
         assert_eq!(expected, actual);
     }
@@ -549,12 +549,12 @@ mod test {
         let repeat_widget =
             Repeat::new(StyledGrapheme::owned(Color::Blue.normal(), "=".to_string()));
         let truncator = Color::Black.paint(".");
-        let truncator_span: Spans = (&truncator).into();
+        let truncator_span: Spans<_> = (&truncator).into();
         let repeat_text_widget =
             TextWidget::new(&repeat_widget, TruncationStyle::Outer, &truncator_span);
         let widgets = vec![&repeat_text_widget];
         let hbox = HBox::new(&widgets);
-        let actual = format!("{}", hbox.truncate(5).collect::<Spans>());
+        let actual = format!("{}", hbox.truncate(5).collect::<Spans<_>>());
         let expected = format!(
             "{}",
             ANSIStrings(&[

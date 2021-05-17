@@ -16,38 +16,39 @@ pub enum TruncationStyle {
 }
 
 #[allow(dead_code)]
-pub trait Truncatable<'a>: fmt::Display + HasWidth + fmt::Debug {
+pub trait Truncatable<'a, T: Clone>: HasWidth + fmt::Debug {
     fn truncate_left(
         &'a self,
         width: usize,
-        symbol: &'a dyn FiniteText<'a>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a>;
+        symbol: &'a dyn FiniteText<'a, T>,
+    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, T>> + 'a>;
     fn truncate_right(
         &'a self,
         width: usize,
-        symbol: &'a dyn FiniteText<'a>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a>;
+        symbol: &'a dyn FiniteText<'a, T>,
+    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, T>> + 'a>;
     fn truncate_outer(
         &'a self,
         width: usize,
-        symbol: &'a dyn FiniteText<'a>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a>;
+        symbol: &'a dyn FiniteText<'a, T>,
+    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, T>> + 'a>;
     fn truncate_inner(
         &'a self,
         width: usize,
-        symbol: &'a dyn FiniteText<'a>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a>;
+        symbol: &'a dyn FiniteText<'a, T>,
+    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, T>> + 'a>;
 }
 
-impl<'a, T> Truncatable<'a> for T
+impl<'a, T, U> Truncatable<'a, U> for T
 where
-    T: Text<'a> + fmt::Debug,
+    T: Text<'a, U> + fmt::Debug,
+    U: Clone + 'a,
 {
     fn truncate_left(
         &'a self,
         width: usize,
-        symbol: &'a dyn FiniteText<'a>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
+        symbol: &'a dyn FiniteText<'a, U>,
+    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, U>> + 'a> {
         let self_width = self.width();
         match self_width {
             Width::Bounded(w) if width >= w => {
@@ -66,8 +67,8 @@ where
     fn truncate_right(
         &'a self,
         width: usize,
-        symbol: &'a dyn FiniteText<'a>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
+        symbol: &'a dyn FiniteText<'a, U>,
+    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, U>> + 'a> {
         let self_width = self.width();
         match self_width {
             Width::Bounded(w) if width >= w => {
@@ -92,8 +93,8 @@ where
     fn truncate_outer(
         &'a self,
         width: usize,
-        symbol: &'a dyn FiniteText<'a>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
+        symbol: &'a dyn FiniteText<'a, U>,
+    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, U>> + 'a> {
         let self_width = self.width();
         match self_width {
             Width::Bounded(w) if width >= w => {
@@ -129,8 +130,8 @@ where
     fn truncate_inner(
         &'a self,
         width: usize,
-        symbol: &'a dyn FiniteText<'a>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
+        symbol: &'a dyn FiniteText<'a, U>,
+    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, U>> + 'a> {
         let self_width = self.width();
         match self_width {
             Width::Bounded(w) if width >= w => {

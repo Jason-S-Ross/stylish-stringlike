@@ -1,6 +1,12 @@
 use super::{RawText, Sliceable};
 use std::iter::once;
 
+#[derive(Debug, Eq, PartialEq)]
+pub struct Split<T, U> {
+    pub delim: Option<T>,
+    pub segment: Option<U>,
+}
+
 pub trait Splitable<'a, T> {
     /// The type corresponding to matched delimiters
     type Delim;
@@ -10,7 +16,7 @@ pub trait Splitable<'a, T> {
     fn split(
         &'a self,
         pattern: T,
-    ) -> Box<dyn Iterator<Item = (Option<Self::Segment>, Option<Self::Delim>)> + 'a>;
+    ) -> Box<dyn Iterator<Item = Split<Self::Delim, Self::Segment>> + 'a>;
 }
 
 impl<'a, T> Splitable<'a, &'a str> for T
@@ -23,7 +29,7 @@ where
     fn split(
         &'a self,
         pattern: &'a str,
-    ) -> Box<dyn Iterator<Item = (Option<Self::Segment>, Option<Self::Delim>)> + 'a> {
+    ) -> Box<dyn Iterator<Item = Split<Self::Delim, Self::Segment>> + 'a> {
         Box::new(
             self.raw_ref()
                 .match_indices(pattern)
@@ -38,9 +44,15 @@ where
                         let delim = self.slice(start..end);
                         let res = if start == 0 {
                             // String starts with delimiter
-                            Some((None, delim))
+                            Some(Split {
+                                segment: None,
+                                delim,
+                            })
                         } else {
-                            Some((self.slice(*last_end..start), delim))
+                            Some(Split {
+                                segment: self.slice(*last_end..start),
+                                delim,
+                            })
                         };
                         *last_end = end;
                         res
@@ -51,7 +63,10 @@ where
                             None
                         } else {
                             // After consuming the last match, we still have some string yet
-                            Some((self.slice(*last_end..), None))
+                            Some(Split {
+                                segment: self.slice(*last_end..),
+                                delim: None,
+                            })
                         }
                     }
                 }),

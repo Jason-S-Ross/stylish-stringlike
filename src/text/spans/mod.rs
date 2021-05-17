@@ -8,33 +8,33 @@ use ansi_term::{ANSIStrings, Style};
 use regex::{Regex, Replacer};
 use search_tree::SearchTree;
 pub use span::Span;
+use std::borrow::Cow;
+use std::error::Error;
 use std::fmt;
 use std::iter::FromIterator;
 use std::ops::RangeBounds;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone, Default, Debug)]
-pub struct Spans {
+pub struct Spans<T> {
     content: String,
     /// Byte-indexed map of spans
-    spans: SearchTree<usize, Style>,
-    default_style: Style,
+    spans: SearchTree<usize, T>,
+    default_style: T,
 }
 
-#[cfg(test)]
-impl Eq for Spans {}
+impl<T: PartialEq> Eq for Spans<T> {}
 
-#[cfg(test)]
-impl PartialEq for Spans {
-    fn eq(&self, other: &Spans) -> bool {
+impl<T: PartialEq> PartialEq for Spans<T> {
+    fn eq(&self, other: &Spans<T>) -> bool {
         self.content == other.content
             && self.spans == other.spans
             && self.default_style == other.default_style
     }
 }
 
-impl Spans {
-    pub fn spans(&self) -> impl Iterator<Item = Span<'_>> + '_ {
+impl<T: Clone> Spans<T> {
+    pub fn spans(&self) -> impl Iterator<Item = Span<'_, T>> + '_ {
         self.spans
             .iter()
             .zip(
@@ -59,13 +59,17 @@ impl Spans {
                 }
             })
     }
+    pub fn with_default_style(&mut self, default_style: &T) -> &Self {
+        self.default_style = default_style.clone();
+        self
+    }
 }
 
-impl Replaceable<&str> for Spans {
-    type Output = Spans;
-    fn replace(&self, from: &str, to: &str) -> Result<Self::Output, ()> {
+impl<T: Clone + PartialEq> Replaceable<&str> for Spans<T> {
+    type Output = Spans<T>;
+    fn replace(&self, from: &str, to: &str) -> Result<Self::Output, Box<dyn Error>> {
         let mut result = String::new();
-        let mut spans = SearchTree::<usize, Style>::new();
+        let mut spans = SearchTree::<usize, T>::new();
         let mut last_start = 0;
         let mut last_end = 0;
         let mut shift_total: isize = 0;
@@ -85,14 +89,14 @@ impl Replaceable<&str> for Spans {
         Ok(Spans {
             content: result,
             spans,
-            ..*self
+            ..self.clone()
         })
     }
     fn replace_regex<R: Replacer>(
         &self,
         searcher: &Regex,
         mut replacer: R,
-    ) -> Result<Self::Output, ()> {
+    ) -> Result<Self::Output, Box<dyn Error>> {
         // Implement the same strategy as regex but it's a pain
 
         pub struct Replacement {
@@ -133,7 +137,7 @@ impl Replaceable<&str> for Spans {
                 }
             }
         };
-        let mut spans = SearchTree::<usize, Style>::new();
+        let mut spans = SearchTree::<usize, T>::new();
         let mut result = String::with_capacity(self.content.len());
         let mut last_end = 0;
         let mut shift_total: isize = 0;
@@ -156,13 +160,13 @@ impl Replaceable<&str> for Spans {
         Ok(Spans {
             content: result,
             spans,
-            ..*self
+            ..self.clone()
         })
     }
 }
 
-impl<'a> Sliceable<'a> for Spans {
-    type Output = Spans;
+impl<'a, T: Clone> Sliceable<'a> for Spans<T> {
+    type Output = Spans<T>;
     type Index = usize;
     fn slice<R>(&'a self, range: R) -> Option<Self::Output>
     where
@@ -174,7 +178,7 @@ impl<'a> Sliceable<'a> for Spans {
             Some(Spans {
                 content: string.to_string(),
                 spans,
-                ..*self
+                ..self.clone()
             })
         } else {
             None
@@ -182,8 +186,11 @@ impl<'a> Sliceable<'a> for Spans {
     }
 }
 
-impl<'a> Graphemes<'a> for Spans {
-    fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
+impl<'a, T> Graphemes<'a, T> for Spans<T>
+where
+    T: Clone,
+{
+    fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a, T>> + 'a> {
         Box::new(
             self.content
                 .grapheme_indices(true)
@@ -199,23 +206,26 @@ impl<'a> Graphemes<'a> for Spans {
     }
 }
 
-impl<'a> FromIterator<StyledGrapheme<'a>> for Spans {
-    fn from_iter<I>(iter: I) -> Spans
+impl<'a, T> FromIterator<StyledGrapheme<'a, T>> for Spans<T>
+where
+    T: Clone + PartialEq + Default + 'a,
+{
+    fn from_iter<I>(iter: I) -> Spans<T>
     where
-        I: IntoIterator<Item = StyledGrapheme<'a>>,
+        I: IntoIterator<Item = StyledGrapheme<'a, T>>,
     {
         let mut content = String::new();
-        let mut last_style: Option<Style> = None;
-        let mut spans = SearchTree::<usize, Style>::new();
+        let mut last_style: Option<Cow<T>> = None;
+        let mut spans = SearchTree::<usize, T>::new();
         for grapheme in iter {
             let len = content.len();
             match last_style {
-                Some(style) if &style == grapheme.style().as_ref() => {}
+                Some(ref style) if style.as_ref() == grapheme.style().as_ref() => {}
                 _ => {
-                    if let Some(_style) = spans.insert(len, **grapheme.style()) {
-                        unreachable!("Failed to insert {:#?} into tree {:#?}", len, spans)
+                    if let Some(_style) = spans.insert(len, grapheme.style().as_ref().clone()) {
+                        unreachable!("Failed to insert {:#?} into tree", len)
                     }
-                    last_style = Some(**grapheme.style())
+                    last_style = Some(grapheme.style().clone())
                 }
             }
             content.push_str(&grapheme.grapheme());
@@ -228,13 +238,39 @@ impl<'a> FromIterator<StyledGrapheme<'a>> for Spans {
     }
 }
 
-impl HasWidth for Spans {
+impl<T> FromIterator<Spans<T>> for Spans<T>
+where
+    T: Clone + PartialEq + Default,
+{
+    fn from_iter<I>(iter: I) -> Spans<T>
+    where
+        I: IntoIterator<Item = Spans<T>>,
+    {
+        let mut content = String::new();
+        let mut spans = SearchTree::<_, _>::new();
+        let mut last_start = 0;
+        for span in iter {
+            let len = content.len();
+            content.push_str(&span.content);
+            // copy_with_shift can't fail with usize shift on usize keys
+            spans.copy_with_shift(&span.spans, .., last_start).unwrap();
+            last_start += len;
+        }
+        Spans {
+            content,
+            spans,
+            default_style: Default::default(),
+        }
+    }
+}
+
+impl<T: Clone> HasWidth for Spans<T> {
     fn width(&self) -> Width {
         self.graphemes().map(|x| x.width()).sum()
     }
 }
 
-impl RawText for Spans {
+impl<T> RawText for Spans<T> {
     fn raw(&self) -> String {
         self.content.clone()
     }
@@ -243,63 +279,64 @@ impl RawText for Spans {
     }
 }
 
-impl<'a> Text<'a> for Spans {}
+impl<'a, T: Clone + 'a> Text<'a, T> for Spans<T> {}
 
-impl<'a, T> From<&'a T> for Spans
+impl<'a, S, T> From<&'a S> for Spans<T>
 where
-    T: Graphemes<'a> + 'a,
+    S: Graphemes<'a, T> + 'a,
+    T: Clone + 'a + Default + PartialEq,
 {
-    fn from(iter: &'a T) -> Spans {
+    fn from(iter: &'a S) -> Spans<T> {
         iter.graphemes().collect()
     }
 }
 
-impl fmt::Display for Spans {
+impl fmt::Display for Spans<Style> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         ANSIStrings(&self.spans().map(|span| (span).into()).collect::<Vec<_>>()).fmt(fmt)
     }
 }
 
-impl<'a> FiniteText<'a> for Spans {}
+impl<'a, T: Clone + 'a> FiniteText<'a, T> for Spans<T> {}
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::text::Splitable;
+    use crate::text::{Split, Splitable};
     use ansi_term::{ANSIStrings, Color};
     use std::ops::Bound;
     #[test]
     fn test_slice_width() {
         let texts = vec![Color::Green.paint("foo")];
-        let text: Spans = (&texts).into();
-        let actual: Spans = text
+        let text: Spans<_> = (&texts).into();
+        let actual: Spans<_> = text
             .slice_width((Bound::Unbounded, Bound::Included(2)))
             .collect();
         let texts2 = vec![Color::Green.paint("fo")];
-        let expected: Spans = (&texts2).into();
+        let expected: Spans<_> = (&texts2).into();
         assert_eq!(expected, actual);
     }
     #[test]
     fn test_slice_width_hard() {
         let texts = vec![Color::Green.paint("👱👱👱")];
-        let text: Spans = (&texts).into();
-        let actual: Spans = text
+        let text: Spans<_> = (&texts).into();
+        let actual: Spans<_> = text
             .slice_width((Bound::Unbounded, Bound::Included(3)))
             .collect();
         let texts2 = vec![Color::Green.paint("👱")];
-        let expected: Spans = (&texts2).into();
+        let expected: Spans<_> = (&texts2).into();
         assert_eq!(expected, actual);
-        let actual: Spans = text
+        let actual: Spans<_> = text
             .slice_width((Bound::Unbounded, Bound::Included(4)))
             .collect();
         let texts2 = vec![Color::Green.paint("👱👱")];
-        let expected: Spans = (&texts2).into();
+        let expected: Spans<_> = (&texts2).into();
         assert_eq!(expected, actual);
     }
     #[test]
     fn test_finite_width() {
         let texts = vec![Color::Green.paint("foo")];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let expected = 3;
         let actual = text.bounded_width();
         assert_eq!(expected, actual);
@@ -307,7 +344,7 @@ mod test {
     #[test]
     fn build_span() {
         let texts = vec![Color::Green.paint("foo")];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let string = ANSIStrings(&texts);
         assert_eq!(format!("{}", text), format!("{}", string));
     }
@@ -318,33 +355,33 @@ mod test {
             Color::Blue.paint("b"),
             Color::Blue.paint("⛇"),
         ];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let string = ANSIStrings(&texts);
         assert_eq!(format!("{}", text), format!("{}", string));
     }
     #[test]
     fn simple_replace() {
         let texts = vec![Color::Red.paint("foo")];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let new_text = text.replace("foo", "bar").unwrap();
         let target_texts = vec![Color::Red.paint("bar")];
-        let target_text: Spans = (&target_texts).into();
+        let target_text: Spans<_> = (&target_texts).into();
 
         assert_eq!(new_text, target_text);
     }
     #[test]
     fn replace_in_span() {
         let texts = vec![Color::Red.paint("Bob "), Color::Blue.paint("Dylan")];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let new_text = text.replace("Bob", "Robert").unwrap();
         let target_texts = vec![Color::Red.paint("Robert "), Color::Blue.paint("Dylan")];
-        let target_text: Spans = (&target_texts).into();
+        let target_text: Spans<_> = (&target_texts).into();
         assert_eq!(new_text, target_text);
     }
     #[test]
     fn replace_across_span_simple() {
         let texts = vec![Color::Red.paint("Here lies "), Color::Blue.paint("Beavis")];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let new_text = text
             .replace("Here lies Beavis", "Here lies Butthead")
             .unwrap();
@@ -352,7 +389,7 @@ mod test {
             Color::Red.paint("Here lies "),
             Color::Blue.paint("Butthead"),
         ];
-        let target_text: Spans = (&target_texts).into();
+        let target_text: Spans<_> = (&target_texts).into();
         assert_eq!(new_text, target_text);
     }
     #[test]
@@ -362,32 +399,32 @@ mod test {
             Color::Blue.paint("oo foo fo"),
             Color::Green.paint("o"),
         ];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let new_text = text.replace("foo", "bar").unwrap();
         let target_texts = vec![
             Color::Red.paint("Here is some b"),
             Color::Blue.paint("ar bar ba"),
             Color::Green.paint("r"),
         ];
-        let target_text: Spans = (&target_texts).into();
+        let target_text: Spans<_> = (&target_texts).into();
         assert_eq!(new_text, target_text);
     }
     #[test]
     fn simple_regex_replace() {
         let texts = vec![Color::Red.paint("foooo")];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let new_text = text
             .replace_regex(&Regex::new("fo+").unwrap(), "bar")
             .unwrap();
         let target_texts = vec![Color::Red.paint("bar")];
-        let target_text: Spans = (&target_texts).into();
+        let target_text: Spans<_> = (&target_texts).into();
 
         assert_eq!(new_text, target_text);
     }
     #[test]
     fn replace_regex_across_span_simple_trival() {
         let texts = vec![Color::Red.paint("Here lies "), Color::Blue.paint("Beavis")];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let new_text = text
             .replace_regex(
                 &Regex::new(r"(Here lies) Beavis").unwrap(),
@@ -398,13 +435,13 @@ mod test {
             Color::Red.paint("Here lies "),
             Color::Blue.paint("Butthead"),
         ];
-        let target_text: Spans = (&target_texts).into();
+        let target_text: Spans<_> = (&target_texts).into();
         assert_eq!(new_text, target_text);
     }
     #[test]
     fn replace_regex_across_span_simple_backref() {
         let texts = vec![Color::Red.paint("Here lies "), Color::Blue.paint("Beavis")];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let new_text = text
             .replace_regex(&Regex::new(r"(Here lies) Beavis").unwrap(), "$1 Butthead")
             .unwrap();
@@ -412,7 +449,7 @@ mod test {
             Color::Red.paint("Here lies "),
             Color::Blue.paint("Butthead"),
         ];
-        let target_text: Spans = (&target_texts).into();
+        let target_text: Spans<_> = (&target_texts).into();
         assert_eq!(new_text, target_text);
     }
     #[test]
@@ -422,7 +459,7 @@ mod test {
             Color::Blue.paint("ooo fuuu f"),
             Color::Green.paint("aaa"),
         ];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let new_text = text
             .replace_regex(&Regex::new("f(([aeiou])+)").unwrap(), "b${2}r")
             .unwrap();
@@ -431,7 +468,7 @@ mod test {
             Color::Blue.paint("or bur b"),
             Color::Green.paint("ar"),
         ];
-        let target_text: Spans = (&target_texts).into();
+        let target_text: Spans<_> = (&target_texts).into();
         println!("expected: {}", target_text);
         println!("actual:   {}", new_text);
         assert_eq!(new_text, target_text);
@@ -443,7 +480,7 @@ mod test {
             Color::Blue.paint("ooo fuuu f"),
             Color::Green.paint("aaa"),
         ];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let new_text = text
             .replace_regex(&Regex::new("f(([aeiou])+)").unwrap(), "bar")
             .unwrap();
@@ -452,7 +489,7 @@ mod test {
             Color::Blue.paint("ar bar b"),
             Color::Green.paint("ar"),
         ];
-        let target_text: Spans = (&target_texts).into();
+        let target_text: Spans<_> = (&target_texts).into();
         println!("expected: {}", target_text);
         println!("actual:   {}", new_text);
         assert_eq!(new_text, target_text);
@@ -464,7 +501,7 @@ mod test {
             Color::Blue.paint("ooo fuuu f"),
             Color::Green.paint("aaa"),
         ];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let new_text = text
             .replace_regex(&Regex::new("quux").unwrap(), "bar")
             .unwrap();
@@ -477,7 +514,7 @@ mod test {
             Color::Blue.paint("ooo fuuu f"),
             Color::Green.paint("aaa"),
         ];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let new_text = text
             .replace_regex(&Regex::new("([zyx])").unwrap(), "missing $1 letters")
             .unwrap();
@@ -490,7 +527,7 @@ mod test {
             Color::Blue.paint("ooo fuuu f"),
             Color::Green.paint("aaa"),
         ];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let span = text.spans().next().unwrap();
         let expected = format!("{}", texts[0]);
         let actual = format!("{}", span);
@@ -503,7 +540,7 @@ mod test {
             Color::Blue.paint("ooo fuuu f"),
             Color::Green.paint("aaa"),
         ];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let s = "H";
         let style = Color::Red.normal();
         let expected = StyledGrapheme::borrowed(&style, s);
@@ -517,7 +554,7 @@ mod test {
             Color::Blue.paint("ooo fuuu f"),
             Color::Green.paint("aaa"),
         ];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
 
         let expected = String::from("Here is some fooo fuuu faaa");
         let actual = text.raw();
@@ -526,10 +563,10 @@ mod test {
     #[test]
     fn slice_start() {
         let texts = vec![Color::Red.paint("01234"), Color::Blue.paint("56789")];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let actual = text.slice(0..8).unwrap();
         let texts = vec![Color::Red.paint("01234"), Color::Blue.paint("567")];
-        let expected: Spans = (&texts).into();
+        let expected: Spans<_> = (&texts).into();
 
         assert_eq!(expected, actual);
     }
@@ -540,14 +577,14 @@ mod test {
             Color::Blue.paint("345"),
             Color::Green.paint("678"),
         ];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let actual = text.slice(2..8).unwrap();
         let texts = vec![
             Color::Red.paint("2"),
             Color::Blue.paint("345"),
             Color::Green.paint("67"),
         ];
-        let expected: Spans = (&texts).into();
+        let expected: Spans<_> = (&texts).into();
 
         assert_eq!(expected, actual);
     }
@@ -558,14 +595,14 @@ mod test {
             Color::Blue.paint("345"),
             Color::Green.paint("678"),
         ];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let actual = text.slice(2..).unwrap();
         let texts = vec![
             Color::Red.paint("2"),
             Color::Blue.paint("345"),
             Color::Green.paint("678"),
         ];
-        let expected: Spans = (&texts).into();
+        let expected: Spans<_> = (&texts).into();
 
         assert_eq!(expected, actual);
     }
@@ -576,14 +613,14 @@ mod test {
             Color::Blue.paint("345"),
             Color::Green.paint("678"),
         ];
-        let text: Spans = (&texts).into();
+        let text: Spans<_> = (&texts).into();
         let actual = text.slice(..).unwrap();
         let texts = vec![
             Color::Red.paint("012"),
             Color::Blue.paint("345"),
             Color::Green.paint("678"),
         ];
-        let expected: Spans = (&texts).into();
+        let expected: Spans<_> = (&texts).into();
 
         assert_eq!(expected, actual);
     }
@@ -598,13 +635,25 @@ mod test {
             Color::White.paint("Place"),
             Color::Yellow.paint("::"),
         ];
-        let spans: Spans = (&texts).into();
+        let spans: Spans<_> = (&texts).into();
         let actual = spans.split("::").collect::<Vec<_>>();
         let expected = vec![
-            (None, Some(Spans::from(&texts[0]))),
-            (Some(Spans::from(&texts[1])), Some(Spans::from(&texts[2]))),
-            (Some(Spans::from(&texts[3])), Some(Spans::from(&texts[4]))),
-            (Some(Spans::from(&texts[5])), Some(Spans::from(&texts[6]))),
+            Split {
+                segment: None,
+                delim: Some(Spans::from(&texts[0])),
+            },
+            Split {
+                segment: Some(Spans::from(&texts[1])),
+                delim: Some(Spans::from(&texts[2])),
+            },
+            Split {
+                segment: Some(Spans::from(&texts[3])),
+                delim: Some(Spans::from(&texts[4])),
+            },
+            Split {
+                segment: Some(Spans::from(&texts[5])),
+                delim: Some(Spans::from(&texts[6])),
+            },
         ];
         assert_eq!(expected, actual);
     }
@@ -617,12 +666,21 @@ mod test {
             Color::Cyan.paint("::"),
             Color::White.paint("Place"),
         ];
-        let spans: Spans = (&texts).into();
+        let spans: Spans<_> = (&texts).into();
         let actual = spans.split("::").collect::<Vec<_>>();
         let expected = vec![
-            (Some(Spans::from(&texts[0])), Some(Spans::from(&texts[1]))),
-            (Some(Spans::from(&texts[2])), Some(Spans::from(&texts[3]))),
-            (Some(Spans::from(&texts[4])), None),
+            Split {
+                segment: Some(Spans::from(&texts[0])),
+                delim: Some(Spans::from(&texts[1])),
+            },
+            Split {
+                segment: Some(Spans::from(&texts[2])),
+                delim: Some(Spans::from(&texts[3])),
+            },
+            Split {
+                segment: Some(Spans::from(&texts[4])),
+                delim: None,
+            },
         ];
         assert_eq!(expected, actual);
     }

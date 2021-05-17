@@ -5,6 +5,8 @@ use std::collections::btree_map::Iter;
 use std::collections::btree_map::Range;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
+use std::error::Error;
+use std::fmt;
 use std::ops::{Add, Bound, RangeBounds, Sub};
 /// Data structure to quickly look up the nearest value smaller than a given value.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -93,7 +95,7 @@ where
         from: &SearchTree<K, V>,
         range: R,
         shift: S,
-    ) -> Result<(), ()>
+    ) -> Result<(), Box<dyn Error>>
     where
         V: Clone + PartialEq,
         T: Ord + ?Sized,
@@ -110,13 +112,22 @@ where
                     self.insert(*key, value.clone());
                 }
             } else {
-                return Err(());
+                return Err(Box::new(ShiftError));
             }
         }
         self.dedup();
         Ok(())
     }
 }
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ShiftError;
+
+impl fmt::Display for ShiftError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "Error attempting to shift span tree")
+    }
+}
+impl Error for ShiftError {}
 
 impl<'a, K, V> Sliceable<'a> for SearchTree<K, V>
 where
@@ -233,6 +244,7 @@ mod test {
         assert_eq!(expected, actual);
     }
     #[test]
+    #[should_panic]
     fn copy_with_shift_fail() {
         let mut tree: SearchTree<isize, usize> = Default::default();
         tree.insert(-2, 2);
@@ -241,7 +253,7 @@ mod test {
         let offset: usize = 1;
         // this will fail since we can't cast the offset to the type isize
         let res = actual.copy_with_shift(&tree, -4..5, offset);
-        assert_eq!(Err(()), res);
+        res.unwrap()
     }
     #[test]
     fn slice_to_zero() {

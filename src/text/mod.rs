@@ -19,11 +19,11 @@ pub trait RawText {
     fn raw(&self) -> String;
     fn raw_ref(&self) -> &str;
 }
-pub trait Text<'a>: fmt::Display + Graphemes<'a> + HasWidth + RawText {
+pub trait Text<'a, T: Clone + 'a>: Graphemes<'a, T> + HasWidth + RawText {
     fn slice_width(
         &'a self,
         range: (Bound<usize>, Bound<usize>),
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a>> + 'a> {
+    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, T>> + 'a> {
         Box::new(
             self.graphemes()
                 .scan(0, move |position, g| {
@@ -46,7 +46,7 @@ pub trait HasWidth {
     fn width(&self) -> Width;
 }
 
-pub trait FiniteText<'a>: Text<'a> + fmt::Debug {
+pub trait FiniteText<'a, T: Clone + 'a>: Text<'a, T> {
     fn bounded_width(&'a self) -> usize {
         match self.width() {
             Width::Bounded(w) => w,
