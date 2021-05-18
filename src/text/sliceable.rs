@@ -1,4 +1,5 @@
 use std::ops::{Bound, Deref, RangeBounds};
+/// Byte-indexed sliceables
 pub trait Sliceable<'a> {
     type Output;
     type Index;

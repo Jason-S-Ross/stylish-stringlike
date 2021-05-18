@@ -21,7 +21,7 @@ mod test {
             Color::Yellow.paint("::"),
         ];
         let spans: Spans<_> = (&texts).into();
-        let split = spans.split("::").collect::<Vec<_>>();
+        let split = spans.split_style("::").collect::<Vec<_>>();
         let ellipsis = Color::Blue.paint("…");
         let ellipsis_span: Spans<_> = (&ellipsis).into();
         let widget_container = split

@@ -6,7 +6,6 @@ use ansi_term::{ANSIString, Style};
 use regex::{Regex, Replacer};
 use std::borrow::{Borrow, Cow};
 use std::cmp::{Eq, PartialEq};
-use std::error::Error;
 use std::fmt;
 use std::ops::RangeBounds;
 use unicode_segmentation::UnicodeSegmentation;
@@ -17,6 +16,14 @@ pub struct Span<'a, T: Clone> {
     content: Cow<'a, str>,
 }
 
+impl<'a, T: Clone> Span<'a, T> {
+    pub fn style(&self) -> &Cow<'a, T> {
+        &self.style
+    }
+    pub fn content(&self) -> &Cow<'a, str> {
+        &self.content
+    }
+}
 impl<'a> fmt::Display for Span<'a, Style> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         self.style.paint(self.content.as_ref()).fmt(fmt)
@@ -81,21 +88,17 @@ where
     T: Clone,
 {
     type Output = Span<'a, T>;
-    fn replace(&self, from: &str, to: &str) -> Result<Self::Output, Box<dyn Error>> {
-        Ok(Span {
+    fn replace(&self, from: &str, to: &str) -> Self::Output {
+        Span {
             style: self.style.clone(),
             content: Cow::Owned(self.content.replace(from, to)),
-        })
+        }
     }
-    fn replace_regex<R: Replacer>(
-        &self,
-        searcher: &Regex,
-        replacer: R,
-    ) -> Result<Self::Output, Box<dyn Error>> {
-        Ok(Span {
+    fn replace_regex<R: Replacer>(&self, searcher: &Regex, replacer: R) -> Self::Output {
+        Span {
             style: self.style.clone(),
             content: Cow::Owned(searcher.replace_all(&self.content, replacer).to_string()),
-        })
+        }
     }
 }
 impl<'a, T: Clone> Sliceable<'a> for Span<'a, T> {
@@ -178,7 +181,7 @@ mod test {
     #[test]
     fn replace() {
         let span = Span::owned(Color::Blue.bold(), String::from("foo"));
-        let actual = span.replace("foo", "bar").unwrap();
+        let actual = span.replace("foo", "bar");
         let expected = Span::owned(Color::Blue.bold(), String::from("bar"));
         assert_eq!(expected, actual);
     }
@@ -186,7 +189,7 @@ mod test {
     fn replace_regex() {
         let span = Span::owned(Color::Blue.bold(), String::from("fooooo"));
         let regex = Regex::new("fo+").unwrap();
-        let actual = span.replace_regex(&regex, "bar").unwrap();
+        let actual = span.replace_regex(&regex, "bar");
         let expected = Span::owned(Color::Blue.bold(), String::from("bar"));
         assert_eq!(expected, actual);
     }
@@ -200,7 +203,7 @@ mod test {
     #[test]
     fn split_inner() {
         let span = Span::owned(Color::Blue.bold(), String::from("Some::Random::Path"));
-        let actual = span.split("::").collect::<Vec<_>>();
+        let actual = span.split_style("::").collect::<Vec<_>>();
         let expected = vec![
             Split {
                 segment: Some(Span::owned(Color::Blue.bold(), String::from("Some"))),
@@ -220,7 +223,7 @@ mod test {
     #[test]
     fn split_outer() {
         let span = Span::owned(Color::Blue.bold(), String::from("::Some::Random::Path::"));
-        let actual = span.split("::").collect::<Vec<_>>();
+        let actual = span.split_style("::").collect::<Vec<_>>();
         let expected = vec![
             Split {
                 segment: None,
@@ -244,7 +247,7 @@ mod test {
     #[test]
     fn split_left() {
         let span = Span::owned(Color::Blue.bold(), String::from("::Some::Random::Path"));
-        let actual = span.split("::").collect::<Vec<_>>();
+        let actual = span.split_style("::").collect::<Vec<_>>();
         let expected = vec![
             Split {
                 segment: None,
@@ -268,7 +271,7 @@ mod test {
     #[test]
     fn split_right() {
         let span = Span::owned(Color::Blue.bold(), String::from("Some::Random::Path::"));
-        let actual = span.split("::").collect::<Vec<_>>();
+        let actual = span.split_style("::").collect::<Vec<_>>();
         let expected = vec![
             Split {
                 segment: Some(Span::owned(Color::Blue.bold(), String::from("Some"))),

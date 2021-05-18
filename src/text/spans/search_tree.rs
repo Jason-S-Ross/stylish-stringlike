@@ -28,6 +28,12 @@ where
             tree: BTreeMap::<K, V>::new(),
         }
     }
+    pub fn contains_key(&self, key: &K) -> bool
+    where
+        K: Ord,
+    {
+        self.tree.contains_key(key)
+    }
     pub fn range<T, R>(&self, range: R) -> Range<'_, K, V>
     where
         T: Ord + ?Sized,
@@ -88,6 +94,9 @@ where
             self.tree.remove(&key);
         }
     }
+    pub fn is_empty(&self) -> bool {
+        self.tree.is_empty()
+    }
     /// Copy values in a range from another tree into this tree,
     /// shifting the keys by some amount.
     pub(super) fn copy_with_shift<T, R, S>(
@@ -131,7 +140,7 @@ impl Error for ShiftError {}
 
 impl<'a, K, V> Sliceable<'a> for SearchTree<K, V>
 where
-    K: Ord + Clone + Sub<Output = K> + 'a + std::fmt::Debug,
+    K: Ord + Clone + Sub<Output = K> + 'a,
     V: Clone,
 {
     type Output = Self;

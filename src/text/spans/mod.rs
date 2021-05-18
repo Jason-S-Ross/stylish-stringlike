@@ -8,11 +8,13 @@ use ansi_term::{ANSIStrings, Style};
 use regex::{Regex, Replacer};
 use search_tree::SearchTree;
 pub use span::Span;
+use std::borrow::Borrow;
 use std::borrow::Cow;
-use std::error::Error;
+use std::convert::AsRef;
 use std::fmt;
 use std::iter::FromIterator;
-use std::ops::RangeBounds;
+use std::iter::{once, repeat};
+use std::ops::{Add, AddAssign, RangeBounds};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone, Default, Debug)]
@@ -34,16 +36,24 @@ impl<T: PartialEq> PartialEq for Spans<T> {
 }
 
 impl<T: Clone> Spans<T> {
-    pub fn spans(&self) -> impl Iterator<Item = Span<'_, T>> + '_ {
-        self.spans
-            .iter()
-            .zip(
+    #[allow(clippy::type_complexity)]
+    fn segments(&self) -> Box<dyn Iterator<Item = ((&usize, &T), Option<(&usize, &T)>)> + '_> {
+        if self.spans.contains_key(&0) {
+            Box::new(
                 self.spans
                     .iter()
-                    .map(Some)
-                    .skip(1)
-                    .chain(std::iter::repeat(None)),
+                    .zip(self.spans.iter().map(Some).skip(1).chain(repeat(None))),
             )
+        } else {
+            Box::new(
+                once((&0, &self.default_style))
+                    .chain(self.spans.iter())
+                    .zip(self.spans.iter().map(Some).chain(repeat(None))),
+            )
+        }
+    }
+    pub fn spans(&self) -> impl Iterator<Item = Span<'_, T>> {
+        self.segments()
             .filter_map(move |((first_key, style), second)| {
                 let second_key = if let Some((second_key, _)) = second {
                     *second_key
@@ -65,38 +75,40 @@ impl<T: Clone> Spans<T> {
     }
 }
 
-impl<T: Clone + PartialEq> Replaceable<&str> for Spans<T> {
+impl<T: Clone + PartialEq + Default + std::fmt::Debug> Replaceable<&str> for Spans<T> {
     type Output = Spans<T>;
-    fn replace(&self, from: &str, to: &str) -> Result<Self::Output, Box<dyn Error>> {
-        let mut result = String::new();
-        let mut spans = SearchTree::<usize, T>::new();
-        let mut last_start = 0;
-        let mut last_end = 0;
-        let mut shift_total: isize = 0;
-        let shift_incr: isize = to.len() as isize - from.len() as isize;
-
-        for (start, part) in self.content.match_indices(from) {
-            result.push_str(&self.content[last_end..start]);
-            result.push_str(to);
-            let end = start + part.len();
-            spans.copy_with_shift(&self.spans, last_start..=end, shift_total)?;
-            shift_total += shift_incr;
-            last_end = end;
-            last_start = start;
+    fn replace(&self, from: &str, to: &str) -> Self::Output {
+        if self.spans.is_empty() {
+            return Spans {
+                content: self.content.replace(from, to),
+                spans: SearchTree::new(),
+                default_style: self.default_style.clone(),
+            };
         }
-        result.push_str(&self.content[last_end..]);
-        spans.copy_with_shift(&self.spans, last_end.., shift_total)?;
-        Ok(Spans {
-            content: result,
-            spans,
-            ..self.clone()
-        })
+        let mut result = Spans {
+            content: String::new(),
+            spans: SearchTree::new(),
+            default_style: self.default_style.clone(),
+        };
+
+        let mut last_end = 0;
+        for (start, part) in self.content.match_indices(from) {
+            if let Some(spans) = self.slice(last_end..start) {
+                result += spans;
+            }
+            let end = start + part.len();
+            if let Some(mut spans) = self.slice(start..end) {
+                spans.content = to.to_string();
+                result += spans;
+            }
+            last_end = end;
+        }
+        if let Some(spans) = self.slice(last_end..) {
+            result += spans;
+        }
+        result
     }
-    fn replace_regex<R: Replacer>(
-        &self,
-        searcher: &Regex,
-        mut replacer: R,
-    ) -> Result<Self::Output, Box<dyn Error>> {
+    fn replace_regex<R: Replacer>(&self, searcher: &Regex, mut replacer: R) -> Self::Output {
         // Implement the same strategy as regex but it's a pain
 
         pub struct Replacement {
@@ -137,43 +149,50 @@ impl<T: Clone + PartialEq> Replaceable<&str> for Spans<T> {
                 }
             }
         };
-        let mut spans = SearchTree::<usize, T>::new();
-        let mut result = String::with_capacity(self.content.len());
         let mut last_end = 0;
-        let mut shift_total: isize = 0;
+        let mut result = Spans {
+            content: String::new(),
+            spans: SearchTree::new(),
+            default_style: self.default_style.clone(),
+        };
         for repl in replacements {
             let start = repl.start;
             let end = repl.end;
-            let match_len = end - start;
             let to = repl.to;
-            let shift_incr = to.len() as isize - match_len as isize;
-            spans.copy_with_shift(&self.spans, last_end..start, shift_total)?;
-            result.push_str(&self.content[last_end..start]);
-            result.push_str(&to);
-            spans.copy_with_shift(&self.spans, start..end, shift_total)?;
-            shift_total += shift_incr;
+            if let Some(spans) = self.slice(last_end..start) {
+                result += spans;
+            }
+            if let Some(mut spans) = self.slice(start..end) {
+                spans.content = to.to_string();
+                result += spans;
+            }
             last_end = end;
         }
-
-        result.push_str(&self.content[last_end..]);
-        spans.copy_with_shift(&self.spans, last_end.., shift_total)?;
-        Ok(Spans {
-            content: result,
-            spans,
-            ..self.clone()
-        })
+        if let Some(spans) = self.slice(last_end..) {
+            result += spans;
+        }
+        result
     }
 }
 
-impl<'a, T: Clone> Sliceable<'a> for Spans<T> {
+impl<'a, T: Clone + std::fmt::Debug> Sliceable<'a> for Spans<T> {
     type Output = Spans<T>;
     type Index = usize;
     fn slice<R>(&'a self, range: R) -> Option<Self::Output>
     where
         R: RangeBounds<Self::Index> + Clone,
     {
-        let spans = self.spans.slice(range.clone());
-        let string = slice_string(&self.content, range);
+        let string = slice_string(&self.content, range.clone());
+        if self.spans.is_empty() {
+            if let Some(string) = string {
+                return Some(Spans {
+                    content: string.to_string(),
+                    spans: SearchTree::new(),
+                    ..self.clone()
+                });
+            }
+        }
+        let spans = self.spans.slice(range);
         if let (Some(string), Some(spans)) = (string, spans) {
             Some(Spans {
                 content: string.to_string(),
@@ -238,29 +257,23 @@ where
     }
 }
 
-impl<T> FromIterator<Spans<T>> for Spans<T>
+impl<'a, T, U> FromIterator<U> for Spans<T>
 where
-    T: Clone + PartialEq + Default,
+    T: Clone + PartialEq + 'a + Default,
+    U: Borrow<Spans<T>> + 'a,
 {
     fn from_iter<I>(iter: I) -> Spans<T>
     where
-        I: IntoIterator<Item = Spans<T>>,
+        I: IntoIterator<Item = U>,
     {
-        let mut content = String::new();
-        let mut spans = SearchTree::<_, _>::new();
-        let mut last_start = 0;
-        for span in iter {
-            let len = content.len();
-            content.push_str(&span.content);
-            // copy_with_shift can't fail with usize shift on usize keys
-            spans.copy_with_shift(&span.spans, .., last_start).unwrap();
-            last_start += len;
+        let mut result: Spans<T> = Default::default();
+        for (i, span) in iter.into_iter().enumerate() {
+            if i == 0 {
+                result.default_style = span.borrow().default_style.clone()
+            }
+            result += span.borrow().clone()
         }
-        Spans {
-            content,
-            spans,
-            default_style: Default::default(),
-        }
+        result
     }
 }
 
@@ -291,9 +304,56 @@ where
     }
 }
 
+impl<T> From<&str> for Spans<T>
+where
+    T: Clone + Default + PartialEq,
+{
+    fn from(other: &str) -> Spans<T> {
+        Spans {
+            content: String::from(other),
+            spans: Default::default(),
+            default_style: Default::default(),
+        }
+    }
+}
+
 impl fmt::Display for Spans<Style> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         ANSIStrings(&self.spans().map(|span| (span).into()).collect::<Vec<_>>()).fmt(fmt)
+    }
+}
+
+impl<T> Add for Spans<T>
+where
+    T: Clone + Default + PartialEq,
+{
+    type Output = Spans<T>;
+    fn add(self, other: Self) -> Self::Output {
+        vec![self, other].iter().collect()
+    }
+}
+
+impl<T> Add for &Spans<T>
+where
+    T: Clone + PartialEq + Default,
+{
+    type Output = Spans<T>;
+    fn add(self, other: Self) -> Self::Output {
+        vec![self, other].iter().cloned().collect()
+    }
+}
+
+impl<T> AddAssign for Spans<T>
+where
+    T: Clone + PartialEq,
+{
+    fn add_assign(&mut self, rhs: Self) {
+        // copy_with_shift always succeeds because len is always positive so no
+        // risk converting
+        self.spans
+            .copy_with_shift(&rhs.spans, .., self.content.len())
+            .unwrap();
+        self.content.push_str(&rhs.content);
     }
 }
 
@@ -363,7 +423,7 @@ mod test {
     fn simple_replace() {
         let texts = vec![Color::Red.paint("foo")];
         let text: Spans<_> = (&texts).into();
-        let new_text = text.replace("foo", "bar").unwrap();
+        let new_text = text.replace("foo", "bar");
         let target_texts = vec![Color::Red.paint("bar")];
         let target_text: Spans<_> = (&target_texts).into();
 
@@ -373,8 +433,25 @@ mod test {
     fn replace_in_span() {
         let texts = vec![Color::Red.paint("Bob "), Color::Blue.paint("Dylan")];
         let text: Spans<_> = (&texts).into();
-        let new_text = text.replace("Bob", "Robert").unwrap();
+        let new_text = text.replace("Bob", "Robert");
         let target_texts = vec![Color::Red.paint("Robert "), Color::Blue.paint("Dylan")];
+        let target_text: Spans<_> = (&target_texts).into();
+        assert_eq!(new_text, target_text);
+    }
+    #[test]
+    fn replace_chars() {
+        let texts = vec![
+            Color::Blue.paint("what"),
+            Color::Red.paint("//\\/;,!"),
+            Color::Blue.paint("the fudge"),
+        ];
+        let text: Spans<_> = (&texts).into();
+        let new_text = text.replace("/", "/");
+        let target_texts = vec![
+            Color::Blue.paint("what"),
+            Color::Red.paint("//\\/;,!"),
+            Color::Blue.paint("the fudge"),
+        ];
         let target_text: Spans<_> = (&target_texts).into();
         assert_eq!(new_text, target_text);
     }
@@ -382,9 +459,7 @@ mod test {
     fn replace_across_span_simple() {
         let texts = vec![Color::Red.paint("Here lies "), Color::Blue.paint("Beavis")];
         let text: Spans<_> = (&texts).into();
-        let new_text = text
-            .replace("Here lies Beavis", "Here lies Butthead")
-            .unwrap();
+        let new_text = text.replace("Here lies Beavis", "Here lies Butthead");
         let target_texts = vec![
             Color::Red.paint("Here lies "),
             Color::Blue.paint("Butthead"),
@@ -400,22 +475,22 @@ mod test {
             Color::Green.paint("o"),
         ];
         let text: Spans<_> = (&texts).into();
-        let new_text = text.replace("foo", "bar").unwrap();
+        let new_text = text.replace("foo", "bar");
         let target_texts = vec![
             Color::Red.paint("Here is some b"),
             Color::Blue.paint("ar bar ba"),
             Color::Green.paint("r"),
         ];
         let target_text: Spans<_> = (&target_texts).into();
+        eprintln!("expected: {}", target_text);
+        eprintln!("actual: {}", new_text);
         assert_eq!(new_text, target_text);
     }
     #[test]
     fn simple_regex_replace() {
         let texts = vec![Color::Red.paint("foooo")];
         let text: Spans<_> = (&texts).into();
-        let new_text = text
-            .replace_regex(&Regex::new("fo+").unwrap(), "bar")
-            .unwrap();
+        let new_text = text.replace_regex(&Regex::new("fo+").unwrap(), "bar");
         let target_texts = vec![Color::Red.paint("bar")];
         let target_text: Spans<_> = (&target_texts).into();
 
@@ -425,12 +500,10 @@ mod test {
     fn replace_regex_across_span_simple_trival() {
         let texts = vec![Color::Red.paint("Here lies "), Color::Blue.paint("Beavis")];
         let text: Spans<_> = (&texts).into();
-        let new_text = text
-            .replace_regex(
-                &Regex::new(r"(Here lies) Beavis").unwrap(),
-                "Here lies Butthead",
-            )
-            .unwrap();
+        let new_text = text.replace_regex(
+            &Regex::new(r"(Here lies) Beavis").unwrap(),
+            "Here lies Butthead",
+        );
         let target_texts = vec![
             Color::Red.paint("Here lies "),
             Color::Blue.paint("Butthead"),
@@ -442,9 +515,8 @@ mod test {
     fn replace_regex_across_span_simple_backref() {
         let texts = vec![Color::Red.paint("Here lies "), Color::Blue.paint("Beavis")];
         let text: Spans<_> = (&texts).into();
-        let new_text = text
-            .replace_regex(&Regex::new(r"(Here lies) Beavis").unwrap(), "$1 Butthead")
-            .unwrap();
+        let new_text =
+            text.replace_regex(&Regex::new(r"(Here lies) Beavis").unwrap(), "$1 Butthead");
         let target_texts = vec![
             Color::Red.paint("Here lies "),
             Color::Blue.paint("Butthead"),
@@ -460,9 +532,7 @@ mod test {
             Color::Green.paint("aaa"),
         ];
         let text: Spans<_> = (&texts).into();
-        let new_text = text
-            .replace_regex(&Regex::new("f(([aeiou])+)").unwrap(), "b${2}r")
-            .unwrap();
+        let new_text = text.replace_regex(&Regex::new("f(([aeiou])+)").unwrap(), "b${2}r");
         let target_texts = vec![
             Color::Red.paint("Here is some b"),
             Color::Blue.paint("or bur b"),
@@ -481,9 +551,7 @@ mod test {
             Color::Green.paint("aaa"),
         ];
         let text: Spans<_> = (&texts).into();
-        let new_text = text
-            .replace_regex(&Regex::new("f(([aeiou])+)").unwrap(), "bar")
-            .unwrap();
+        let new_text = text.replace_regex(&Regex::new("f(([aeiou])+)").unwrap(), "bar");
         let target_texts = vec![
             Color::Red.paint("Here is some b"),
             Color::Blue.paint("ar bar b"),
@@ -502,9 +570,7 @@ mod test {
             Color::Green.paint("aaa"),
         ];
         let text: Spans<_> = (&texts).into();
-        let new_text = text
-            .replace_regex(&Regex::new("quux").unwrap(), "bar")
-            .unwrap();
+        let new_text = text.replace_regex(&Regex::new("quux").unwrap(), "bar");
         assert_eq!(new_text, text);
     }
     #[test]
@@ -515,9 +581,7 @@ mod test {
             Color::Green.paint("aaa"),
         ];
         let text: Spans<_> = (&texts).into();
-        let new_text = text
-            .replace_regex(&Regex::new("([zyx])").unwrap(), "missing $1 letters")
-            .unwrap();
+        let new_text = text.replace_regex(&Regex::new("([zyx])").unwrap(), "missing $1 letters");
         assert_eq!(new_text, text);
     }
     #[test]
@@ -636,7 +700,7 @@ mod test {
             Color::Yellow.paint("::"),
         ];
         let spans: Spans<_> = (&texts).into();
-        let actual = spans.split("::").collect::<Vec<_>>();
+        let actual = spans.split_style("::").collect::<Vec<_>>();
         let expected = vec![
             Split {
                 segment: None,
@@ -667,7 +731,7 @@ mod test {
             Color::White.paint("Place"),
         ];
         let spans: Spans<_> = (&texts).into();
-        let actual = spans.split("::").collect::<Vec<_>>();
+        let actual = spans.split_style("::").collect::<Vec<_>>();
         let expected = vec![
             Split {
                 segment: Some(Spans::from(&texts[0])),
