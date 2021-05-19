@@ -16,6 +16,7 @@ where
 {
     tree: BTreeMap<K, V>,
 }
+
 impl<K, V> SearchTree<K, V>
 where
     K: Ord,

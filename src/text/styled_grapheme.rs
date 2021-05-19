@@ -16,6 +16,9 @@ impl<'a, T: PartialEq + Clone> PartialEq for StyledGrapheme<'a, T> {
 }
 
 impl<'a, T: Clone> StyledGrapheme<'a, T> {
+    pub fn new(style: Cow<'a, T>, grapheme: Cow<'a, str>) -> Self {
+        StyledGrapheme { style, grapheme }
+    }
     pub fn borrowed(style: &'a T, grapheme: &'a str) -> Self {
         StyledGrapheme {
             style: Cow::Borrowed(style),

@@ -23,6 +23,9 @@ impl<'a, T: Clone> Span<'a, T> {
     pub fn content(&self) -> &Cow<'a, str> {
         &self.content
     }
+    pub fn new(style: Cow<'a, T>, content: Cow<'a, str>) -> Span<'a, T> {
+        Span { style, content }
+    }
     pub fn borrowed(style: &'a T, content: &'a str) -> Span<'a, T> {
         Span {
             style: Cow::Borrowed(style),

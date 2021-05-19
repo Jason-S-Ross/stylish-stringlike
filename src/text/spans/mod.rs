@@ -22,33 +22,50 @@ pub struct Spans<T> {
     content: String,
     /// Byte-indexed map of spans
     spans: SearchTree<usize, T>,
-    default_style: T,
 }
 
 impl<T: PartialEq> Eq for Spans<T> {}
 
 impl<T: PartialEq> PartialEq for Spans<T> {
     fn eq(&self, other: &Spans<T>) -> bool {
-        self.content == other.content
-            && self.spans == other.spans
-            && self.default_style == other.default_style
+        self.content == other.content && self.spans == other.spans
     }
 }
 
-impl<T: Clone> Spans<T> {
+impl<T: Clone + Default> Spans<T> {
     #[allow(clippy::type_complexity)]
-    fn segments(&self) -> Box<dyn Iterator<Item = ((&usize, &T), Option<(&usize, &T)>)> + '_> {
+    fn segments(
+        &self,
+    ) -> Box<dyn Iterator<Item = ((&usize, Cow<'_, T>), Option<(&usize, Cow<'_, T>)>)> + '_> {
         if self.spans.contains_key(&0) {
             Box::new(
                 self.spans
                     .iter()
-                    .zip(self.spans.iter().map(Some).skip(1).chain(repeat(None))),
+                    .map(|(key, val)| (key, Cow::Borrowed(val)))
+                    .zip(
+                        self.spans
+                            .iter()
+                            .map(|(key, val)| (key, Cow::Borrowed(val)))
+                            .map(Some)
+                            .skip(1)
+                            .chain(repeat(None)),
+                    ),
             )
         } else {
             Box::new(
-                once((&0, &self.default_style))
-                    .chain(self.spans.iter())
-                    .zip(self.spans.iter().map(Some).chain(repeat(None))),
+                once((&0, Cow::Owned(Default::default())))
+                    .chain(
+                        self.spans
+                            .iter()
+                            .map(|(key, val)| (key, Cow::Borrowed(val))),
+                    )
+                    .zip(
+                        self.spans
+                            .iter()
+                            .map(|(key, val)| (key, Cow::Borrowed(val)))
+                            .map(Some)
+                            .chain(repeat(None)),
+                    ),
             )
         }
     }
@@ -61,17 +78,13 @@ impl<T: Clone> Spans<T> {
                     self.content.len()
                 };
                 if let Some(ref s) = self.content.get(*first_key..second_key) {
-                    Some(Span::borrowed(style, s))
+                    Some(Span::new(style, Cow::Borrowed(s)))
                 } else {
                     // This represents an invalid state in the spans.
                     // One of the spans is actually out of the range of the length of the string.
                     None
                 }
             })
-    }
-    pub fn with_default_style(&mut self, default_style: &T) -> &Self {
-        self.default_style = default_style.clone();
-        self
     }
     pub fn push(&mut self, other: &Self) -> &Self
     where
@@ -102,7 +115,6 @@ impl<'a, T: Clone + PartialEq + Default> Replaceable<'a, &'a str> for Spans<T> {
         let mut result = Spans {
             content: String::new(),
             spans: SearchTree::new(),
-            default_style: self.default_style.clone(),
         };
 
         let mut last_end = 0;
@@ -126,7 +138,6 @@ impl<'a, T: Clone + PartialEq + Default> Replaceable<'a, &'a str> for Spans<T> {
         let mut result = Spans {
             content: String::new(),
             spans: SearchTree::new(),
-            default_style: self.default_style.clone(),
         };
         let captures = searcher.captures_iter(&self.content);
         for capture in captures {
@@ -156,7 +167,6 @@ impl<'a, T: Clone + PartialEq + Default> Replaceable<'a, &'a Spans<T>> for Spans
         let mut result = Spans {
             content: String::new(),
             spans: SearchTree::new(),
-            default_style: self.default_style.clone(),
         };
 
         let mut last_end = 0;
@@ -177,7 +187,6 @@ impl<'a, T: Clone + PartialEq + Default> Replaceable<'a, &'a Spans<T>> for Spans
         let mut result = Spans {
             content: String::new(),
             spans: SearchTree::new(),
-            default_style: self.default_style.clone(),
         };
         let captures = searcher.captures_iter(&self.content);
         for capture in captures {
@@ -218,7 +227,6 @@ impl<'a, T: Clone> Sliceable<'a> for Spans<T> {
                 return Some(Spans {
                     content: string.to_string(),
                     spans: SearchTree::new(),
-                    ..self.clone()
                 });
             }
         }
@@ -227,7 +235,6 @@ impl<'a, T: Clone> Sliceable<'a> for Spans<T> {
             Some(Spans {
                 content: string.to_string(),
                 spans,
-                ..self.clone()
             })
         } else {
             None
@@ -237,19 +244,18 @@ impl<'a, T: Clone> Sliceable<'a> for Spans<T> {
 
 impl<'a, T> Graphemes<'a, T> for Spans<T>
 where
-    T: Clone,
+    T: Clone + Default,
 {
     fn graphemes(&'a self) -> Box<dyn Iterator<Item = StyledGrapheme<'a, T>> + 'a> {
         Box::new(
             self.content
                 .grapheme_indices(true)
                 .map(move |(start_byte, grapheme)| {
-                    let style = if let Some(ref s) = self.spans.search_left(&start_byte) {
-                        s
+                    if let Some(style) = self.spans.search_left(&start_byte) {
+                        StyledGrapheme::<T>::borrowed(style, grapheme)
                     } else {
-                        &self.default_style
-                    };
-                    StyledGrapheme::borrowed(style, grapheme)
+                        StyledGrapheme::<T>::owned(Default::default(), String::from(grapheme))
+                    }
                 }),
         )
     }
@@ -279,11 +285,7 @@ where
             }
             content.push_str(&grapheme.grapheme());
         }
-        Spans {
-            content,
-            spans,
-            default_style: Default::default(),
-        }
+        Spans { content, spans }
     }
 }
 
@@ -297,10 +299,7 @@ where
         I: IntoIterator<Item = U>,
     {
         let mut result: Spans<T> = Default::default();
-        for (i, span) in iter.into_iter().enumerate() {
-            if i == 0 {
-                result.default_style = span.borrow().default_style.clone()
-            }
+        for span in iter {
             result += span.borrow().clone()
         }
         result
@@ -316,17 +315,14 @@ where
         I: IntoIterator<Item = Span<'a, T>>,
     {
         let mut result: Spans<T> = Default::default();
-        for (i, span) in iter.into_iter().enumerate() {
-            if i == 0 {
-                result.default_style = span.borrow().style().clone().into_owned();
-            }
+        for span in iter {
             result.push_span(&span);
         }
         result
     }
 }
 
-impl<T: Clone> HasWidth for Spans<T> {
+impl<T: Clone + Default> HasWidth for Spans<T> {
     fn width(&self) -> Width {
         self.graphemes().map(|x| x.width()).sum()
     }
@@ -341,7 +337,7 @@ impl<T> RawText for Spans<T> {
     }
 }
 
-impl<'a, T: Clone + 'a> Text<'a, T> for Spans<T> {}
+impl<'a, T: Clone + Default + 'a> Text<'a, T> for Spans<T> {}
 
 impl<'a, S, T> From<&'a S> for Spans<T>
 where
@@ -358,10 +354,11 @@ where
     T: Clone + Default + PartialEq,
 {
     fn from(other: &str) -> Spans<T> {
+        let mut spans: SearchTree<_, _> = Default::default();
+        spans.insert(0, Default::default());
         Spans {
             content: String::from(other),
-            spans: Default::default(),
-            default_style: Default::default(),
+            spans,
         }
     }
 }
@@ -406,7 +403,7 @@ where
     }
 }
 
-impl<'a, T: Clone + 'a> FiniteText<'a, T> for Spans<T> {}
+impl<'a, T: Clone + Default + 'a> FiniteText<'a, T> for Spans<T> {}
 
 #[cfg(test)]
 mod test {
