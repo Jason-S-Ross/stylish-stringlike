@@ -71,8 +71,22 @@ where
     {
         self.tree.keys().cloned().collect()
     }
+    pub fn trim(&mut self, max_key: K)
+    where
+        K: Ord + Clone,
+    {
+        let drop_keys: Vec<_> = self
+            .tree
+            .iter()
+            .filter_map(|(key, _val)| if key > &max_key { Some(key) } else { None })
+            .cloned()
+            .collect();
+        for key in drop_keys {
+            self.tree.remove(&key);
+        }
+    }
     /// Drops keys that have the same value as the previous keys
-    fn dedup(&mut self)
+    pub fn dedup(&mut self)
     where
         V: PartialEq,
         K: Clone,

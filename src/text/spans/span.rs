@@ -23,6 +23,18 @@ impl<'a, T: Clone> Span<'a, T> {
     pub fn content(&self) -> &Cow<'a, str> {
         &self.content
     }
+    pub fn borrowed(style: &'a T, content: &'a str) -> Span<'a, T> {
+        Span {
+            style: Cow::Borrowed(style),
+            content: Cow::Borrowed(content),
+        }
+    }
+    pub fn owned(style: T, content: String) -> Span<'a, T> {
+        Span {
+            style: Cow::Owned(style),
+            content: Cow::Owned(content),
+        }
+    }
 }
 impl<'a> fmt::Display for Span<'a, Style> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
@@ -59,20 +71,6 @@ impl<'a, T: Clone> RawText for Span<'a, T> {
     }
 }
 impl<'a, T: Clone> FiniteText<'a, T> for Span<'a, T> {}
-impl<'a, T: Clone> Span<'a, T> {
-    pub fn borrowed(style: &'a T, content: &'a str) -> Span<'a, T> {
-        Span {
-            style: Cow::Borrowed(style),
-            content: Cow::Borrowed(content),
-        }
-    }
-    pub fn owned(style: T, content: String) -> Span<'a, T> {
-        Span {
-            style: Cow::Owned(style),
-            content: Cow::Owned(content),
-        }
-    }
-}
 impl<'a> From<&'a Span<'a, Style>> for ANSIString<'a> {
     fn from(span: &'a Span<'a, Style>) -> ANSIString<'a> {
         span.style.paint(span.content.as_ref())
@@ -83,21 +81,51 @@ impl<'a> From<Span<'a, Style>> for ANSIString<'a> {
         span.style.paint(span.content)
     }
 }
-impl<'a, T> Replaceable<&str> for Span<'a, T>
+
+impl<'a, T> Replaceable<'a, &'a str> for Span<'a, T>
 where
     T: Clone,
 {
-    type Output = Span<'a, T>;
-    fn replace(&self, from: &str, to: &str) -> Self::Output {
+    fn replace(&'a self, from: &str, replacer: &'a str) -> Self {
+        let mut content = String::new();
+        let mut last_end = 0;
+        for (start, part) in self.content.match_indices(from) {
+            if let Some(s) = self.slice(last_end..start) {
+                content += &s.content;
+                content.push_str(&replacer);
+            }
+            last_end = start + part.len();
+        }
+        if let Some(s) = self.content.get(last_end..) {
+            content += s;
+        }
         Span {
             style: self.style.clone(),
-            content: Cow::Owned(self.content.replace(from, to)),
+            content: Cow::Owned(content),
         }
     }
-    fn replace_regex<R: Replacer>(&self, searcher: &Regex, replacer: R) -> Self::Output {
+    fn replace_regex(&'a self, searcher: &Regex, replacer: &'a str) -> Self {
+        let captures = searcher.captures_iter(&self.content);
+        let mut last_end = 0;
+        let mut content = String::new();
+        for capture in captures {
+            let mat = capture
+                .get(0)
+                .expect("Captures are always supposed to have one match");
+            if let Some(s) = self.slice(last_end..mat.start()) {
+                content += &s.content;
+                let mut new = String::new();
+                String::from(replacer).replace_append(&capture, &mut new);
+                content += &new;
+            }
+            last_end = mat.end();
+        }
+        if let Some(s) = self.content.get(last_end..) {
+            content += s;
+        }
         Span {
             style: self.style.clone(),
-            content: Cow::Owned(searcher.replace_all(&self.content, replacer).to_string()),
+            content: Cow::Owned(content),
         }
     }
 }
@@ -110,10 +138,7 @@ impl<'a, T: Clone> Sliceable<'a> for Span<'a, T> {
     {
         let s = slice_string(&self.content, range);
         if let Some(s) = s {
-            Some(Span {
-                style: self.style.clone(),
-                content: Cow::Borrowed(s),
-            })
+            Some(Span::borrowed(&self.style, s))
         } else {
             None
         }
@@ -191,6 +216,28 @@ mod test {
         let regex = Regex::new("fo+").unwrap();
         let actual = span.replace_regex(&regex, "bar");
         let expected = Span::owned(Color::Blue.bold(), String::from("bar"));
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn replace_regex_captures() {
+        let span = Span::owned(Color::Blue.bold(), String::from("One Two Three"));
+        let regex = Regex::new(r"(\w+) (\w+) (\w+)").unwrap();
+        let actual = span.replace_regex(&regex, "$3 $2 $1");
+        let expected = Span::owned(Color::Blue.bold(), String::from("Three Two One"));
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn replace_regex_captures_multiple() {
+        let span = Span::owned(
+            Color::Blue.bold(),
+            String::from("123-456-7890  132/465/0987  111_222_3333"),
+        );
+        let regex = Regex::new(r"([0-9]{3})[_/-]([0-9]{3})[_/-]([0-9]{4})").unwrap();
+        let actual = span.replace_regex(&regex, "$1-$2-$3");
+        let expected = Span::owned(
+            Color::Blue.bold(),
+            String::from("123-456-7890  132-465-0987  111-222-3333"),
+        );
         assert_eq!(expected, actual);
     }
     #[test]
