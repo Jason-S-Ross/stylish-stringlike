@@ -1,82 +1,81 @@
-mod graphemes;
+mod painter;
+mod repeat;
 mod replaceable;
 mod sliceable;
 mod spans;
 mod splitable;
-mod styled_grapheme;
 mod width;
-pub use graphemes::*;
-pub use replaceable::*;
-pub use sliceable::*;
-pub use spans::*;
-pub use splitable::*;
-use std::fmt;
-pub use styled_grapheme::*;
-pub use width::*;
+pub(crate) use painter::*;
+pub(crate) use repeat::*;
+pub(crate) use replaceable::*;
+pub(crate) use sliceable::*;
+pub(crate) use spans::*;
+pub(crate) use splitable::*;
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
+pub(crate) use width::*;
 
 use std::ops::{Bound, RangeBounds};
-pub trait RawText {
+pub(crate) trait RawText {
     fn raw(&self) -> String;
     fn raw_ref(&self) -> &str;
 }
-pub trait Text<'a, T: Clone + 'a>: Graphemes<'a, T> + HasWidth + RawText {
-    fn slice_width(
-        &'a self,
-        range: (Bound<usize>, Bound<usize>),
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, T>> + 'a> {
-        Box::new(
-            self.graphemes()
-                .scan(0, move |position, g| {
-                    if let Width::Bounded(w) = g.width() {
-                        *position += w;
-                        let in_range = range.contains(position);
-                        Some((g, in_range))
-                    } else {
-                        unreachable!("Grapheme with unbounded width!")
-                    }
-                })
-                .skip_while(|(_g, in_range)| !in_range)
-                .take_while(|(_g, in_range)| *in_range)
-                .map(|(g, _in_range)| g),
-        )
-    }
+
+pub(crate) trait WidthSliceable<'a> {
+    type Output: 'a + Sized;
+    /// Slices an object by width rather than by bytes
+    fn slice_width(&'a self, range: (Bound<usize>, Bound<usize>)) -> Option<Self::Output>;
 }
 
-pub trait HasWidth {
-    fn width(&self) -> Width;
-}
-
-pub trait FiniteText<'a, T: Clone + 'a>: Text<'a, T> {
-    fn bounded_width(&'a self) -> usize {
-        match self.width() {
-            Width::Bounded(w) => w,
-            Width::Unbounded => {
-                unreachable!("Created a finite text object with an unbounded width")
+impl<'a, T> WidthSliceable<'a> for T
+where
+    T: RawText + Sliceable<'a> + 'a + Sized,
+{
+    type Output = T;
+    /// Slices an object by width rather than by bytes
+    fn slice_width(&'a self, range: (Bound<usize>, Bound<usize>)) -> Option<Self::Output>
+    where
+        Self: Sized,
+    {
+        let mut start_byte = None;
+        let mut end_byte = None;
+        let mut current_width = 0;
+        let mut current_byte = 0;
+        for grapheme in self.raw().graphemes(true) {
+            current_width += grapheme.width();
+            let in_range = range.contains(&current_width);
+            match (in_range, start_byte) {
+                (true, None) => start_byte = Some(current_byte),
+                (false, Some(_)) => {
+                    end_byte = Some(current_byte);
+                    break;
+                }
+                _ => {}
             }
+            current_byte += grapheme.len();
+        }
+        match (start_byte, end_byte) {
+            (Some(s), Some(e)) => self.slice(s..e),
+            (Some(s), None) => self.slice(s..),
+            (None, Some(e)) => self.slice(..e),
+            (None, None) => None,
         }
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-    use ansi_term::Color;
-    #[test]
-    fn ansi_string() {
-        let string = "Test";
-        let style = Color::Red.normal();
-        let ansistring = style.paint(string);
-        let expected = StyledGrapheme::borrowed(&style, &string[..1]);
-        let actual = ansistring.graphemes().next().unwrap();
-        assert_eq!(expected, actual);
+pub(crate) trait HasWidth {
+    fn width(&self) -> Width;
+}
+
+impl<T> HasWidth for T
+where
+    T: BoundedWidth,
+{
+    fn width(&self) -> Width {
+        Width::Bounded(self.bounded_width())
     }
-    #[test]
-    fn ansi_strings() {
-        let string = "Test";
-        let style = Color::Red.normal();
-        let ansistrings = vec![style.paint(string)];
-        let expected = StyledGrapheme::borrowed(&style, &string[..1]);
-        let actual = ansistrings.graphemes().next().unwrap();
-        assert_eq!(expected, actual);
-    }
+}
+
+pub(crate) trait BoundedWidth {
+    fn bounded_width(&self) -> usize;
 }

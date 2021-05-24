@@ -1,23 +1,23 @@
-use crate::text::{HasWidth, StyledGrapheme, Width};
-use crate::widget::TextWidget;
+use crate::text::Width;
+use crate::widget::Fitable;
 
 #[allow(dead_code)]
-pub struct HBox<'a, T: Clone> {
-    elements: Vec<&'a TextWidget<'a, T>>,
+pub(crate) struct HBox<'a> {
+    elements: Vec<&'a dyn Fitable>,
 }
 
-impl<'a, T: Clone> HBox<'a, T> {
+impl<'a> HBox<'a> {
     #[allow(dead_code)]
-    pub fn new(elements: &[&'a TextWidget<'a, T>]) -> Self {
+    pub(crate) fn new() -> Self {
         HBox {
-            elements: elements.to_vec(),
+            elements: Vec::new(),
         }
     }
+    pub(crate) fn push(&mut self, element: &'a dyn Fitable) {
+        self.elements.push(element);
+    }
     #[allow(dead_code)]
-    pub fn truncate(
-        &'a self,
-        width: usize,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, T>> + 'a> {
+    pub(crate) fn truncate(&'a self, width: usize) -> String {
         let mut space = width;
         let mut todo: Vec<(usize, _)> = self
             .elements
@@ -89,11 +89,11 @@ impl<'a, T: Clone> HBox<'a, T> {
             }
         }
 
-        Box::new(
-            self.elements
-                .iter()
-                .enumerate()
-                .flat_map(move |(i, widget)| widget.truncate(widths[&i])),
-        )
+        self.elements
+            .iter()
+            .enumerate()
+            .map(move |(i, widget)| widget.truncate(widths[&i]))
+            .flatten()
+            .collect()
     }
 }

@@ -2,7 +2,7 @@ use std::iter::Sum;
 use std::ops::{Add, AddAssign};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum Width {
+pub(crate) enum Width {
     Bounded(usize),
     Unbounded,
 }

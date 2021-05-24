@@ -1,39 +1,52 @@
-use crate::text::{FiniteText, HasWidth, StyledGrapheme, Width};
-use crate::widget::{Truncatable, TruncationStyle};
+use crate::text::{HasWidth, Width};
+use crate::widget::{Truncateable, TruncationStrategy};
+use std::fmt::Display;
 
-#[allow(dead_code)]
-pub struct TextWidget<'a, T: Clone> {
-    text: &'a dyn Truncatable<'a, T>,
-    truncation_style: TruncationStyle,
-    truncation_symbol: &'a dyn FiniteText<'a, T>,
+pub(crate) trait Fitable: HasWidth {
+    fn truncate(&self, width: usize) -> Option<String>;
 }
 
-impl<'a, T: Clone> TextWidget<'a, T> {
-    #[allow(dead_code)]
-    pub fn new(
-        text: &'a dyn Truncatable<'a, T>,
-        truncation_style: TruncationStyle,
-        truncation_symbol: &'a dyn FiniteText<'a, T>,
-    ) -> Self {
+pub(crate) struct TextWidget<'a, T, U>
+where
+    T: Truncateable<'a>,
+    T::Output: Display,
+    U: TruncationStrategy<'a, T>,
+{
+    text: &'a T,
+    truncation_strategy: &'a U,
+}
+
+impl<'a, T, U> TextWidget<'a, T, U>
+where
+    T: Truncateable<'a>,
+    T::Output: Display,
+    U: TruncationStrategy<'a, T>,
+{
+    pub(crate) fn new(text: &'a T, truncation_strategy: &'a U) -> Self {
         TextWidget {
             text,
-            truncation_style,
-            truncation_symbol,
-        }
-    }
-    #[allow(dead_code)]
-    pub fn truncate(&self, width: usize) -> Box<dyn Iterator<Item = StyledGrapheme<'a, T>> + 'a> {
-        use TruncationStyle::{Inner, Left, Outer, Right};
-        match self.truncation_style {
-            Left => self.text.truncate_left(width, self.truncation_symbol),
-            Right => self.text.truncate_right(width, self.truncation_symbol),
-            Inner => self.text.truncate_inner(width, self.truncation_symbol),
-            Outer => self.text.truncate_outer(width, self.truncation_symbol),
+            truncation_strategy,
         }
     }
 }
 
-impl<'a, T: Clone> HasWidth for TextWidget<'a, T> {
+impl<'a, T, U> Fitable for TextWidget<'a, T, U>
+where
+    T: Truncateable<'a>,
+    T::Output: Display,
+    U: TruncationStrategy<'a, T>,
+{
+    fn truncate(&self, width: usize) -> Option<String> {
+        self.truncation_strategy.truncate(self.text, width)
+    }
+}
+
+impl<'a, T, U> HasWidth for TextWidget<'a, T, U>
+where
+    T: Truncateable<'a>,
+    T::Output: Display,
+    U: TruncationStrategy<'a, T>,
+{
     fn width(&self) -> Width {
         self.text.width()
     }

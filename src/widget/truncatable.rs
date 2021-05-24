@@ -1,162 +1,156 @@
-use crate::text::{FiniteText, HasWidth, StyledGrapheme, Text, Width};
-use std::fmt;
+use crate::text::{BoundedWidth, HasWidth, Width, WidthSliceable};
+use std::fmt::Display;
 use std::ops::Bound;
 
-#[allow(dead_code)]
-#[derive(Copy, Clone, Debug)]
-pub enum TruncationStyle {
-    #[allow(dead_code)]
-    Left,
-    #[allow(dead_code)]
-    Right,
-    #[allow(dead_code)]
-    Inner,
-    #[allow(dead_code)]
-    Outer,
-}
+pub(crate) trait Truncateable<'a>: HasWidth + WidthSliceable<'a> {}
 
-#[allow(dead_code)]
-pub trait Truncatable<'a, T: Clone>: HasWidth + fmt::Debug {
-    fn truncate_left(
-        &'a self,
-        width: usize,
-        symbol: &'a dyn FiniteText<'a, T>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, T>> + 'a>;
-    fn truncate_right(
-        &'a self,
-        width: usize,
-        symbol: &'a dyn FiniteText<'a, T>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, T>> + 'a>;
-    fn truncate_outer(
-        &'a self,
-        width: usize,
-        symbol: &'a dyn FiniteText<'a, T>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, T>> + 'a>;
-    fn truncate_inner(
-        &'a self,
-        width: usize,
-        symbol: &'a dyn FiniteText<'a, T>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, T>> + 'a>;
-}
-
-impl<'a, T, U> Truncatable<'a, U> for T
+impl<'a, T> Truncateable<'a> for T
 where
-    T: Text<'a, U> + fmt::Debug,
-    U: Clone + 'a,
+    T: WidthSliceable<'a> + HasWidth,
+    T::Output: Display + Sized,
 {
-    fn truncate_left(
-        &'a self,
-        width: usize,
-        symbol: &'a dyn FiniteText<'a, U>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, U>> + 'a> {
-        let self_width = self.width();
-        match self_width {
+}
+
+pub(crate) trait TruncationStrategy<'a, T>
+where
+    T: WidthSliceable<'a> + HasWidth,
+    T::Output: Display,
+{
+    fn truncate(&'a self, target: &'a T, width: usize) -> Option<String>;
+}
+
+pub(crate) enum TruncationStyle<T: BoundedWidth + Display> {
+    #[allow(dead_code)]
+    Left(Option<T>),
+    #[allow(dead_code)]
+    Right(Option<T>),
+    #[allow(dead_code)]
+    Inner(Option<T>),
+}
+
+impl<'a, T, S: BoundedWidth + Display> TruncationStrategy<'a, T> for TruncationStyle<S>
+where
+    T: WidthSliceable<'a> + HasWidth,
+    T::Output: Display,
+{
+    fn truncate(&'a self, target: &'a T, width: usize) -> Option<String> {
+        use TruncationStyle::*;
+        let w = match target.width() {
             Width::Bounded(w) if width >= w => {
-                return self.graphemes();
+                return Some(format!(
+                    "{}",
+                    target.slice_width((Bound::Unbounded, Bound::Unbounded))?
+                ))
             }
-            _ => {}
-        }
-        Box::new(
-            self.slice_width((
-                Bound::Unbounded,
-                Bound::Included(width.saturating_sub(symbol.bounded_width())),
-            ))
-            .chain(symbol.graphemes()),
-        )
-    }
-    fn truncate_right(
-        &'a self,
-        width: usize,
-        symbol: &'a dyn FiniteText<'a, U>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, U>> + 'a> {
-        let self_width = self.width();
-        match self_width {
-            Width::Bounded(w) if width >= w => {
-                return self.graphemes();
-            }
-            _ => {}
-        }
-        if let Width::Bounded(self_width) = self_width {
-            Box::new(symbol.graphemes().chain(self.slice_width((
-                Bound::Excluded(
-                    self_width.saturating_sub(width.saturating_sub(symbol.bounded_width())),
-                ),
-                Bound::Unbounded,
-            ))))
-        } else {
-            Box::new(symbol.graphemes().chain(self.slice_width((
-                Bound::Unbounded,
-                Bound::Included(width.saturating_sub(symbol.bounded_width())),
-            ))))
-        }
-    }
-    fn truncate_outer(
-        &'a self,
-        width: usize,
-        symbol: &'a dyn FiniteText<'a, U>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, U>> + 'a> {
-        let self_width = self.width();
-        match self_width {
-            Width::Bounded(w) if width >= w => {
-                return self.graphemes();
-            }
-            _ => {}
-        }
-        let sym_width = symbol.bounded_width();
-        if let Width::Bounded(self_width) = self_width {
-            let diff = self_width.saturating_sub(width) + 2 * sym_width;
-            let start = diff / 2;
-            let end = start + width.saturating_sub(2 * sym_width);
-            Box::new(
-                symbol
-                    .graphemes()
-                    .chain(self.slice_width((Bound::Excluded(start), Bound::Included(end))))
-                    .chain(symbol.graphemes()),
-            )
-        } else {
-            Box::new(
-                symbol
-                    .graphemes()
-                    .chain(
-                        self.slice_width((
+            Width::Bounded(w) => w,
+            Width::Unbounded => {
+                return match self {
+                    Left(Some(symbol)) => {
+                        let slice = target.slice_width((
                             Bound::Unbounded,
-                            Bound::Included(width - 2 * sym_width),
-                        )),
-                    )
-                    .chain(symbol.graphemes()),
-            )
-        }
-    }
-    fn truncate_inner(
-        &'a self,
-        width: usize,
-        symbol: &'a dyn FiniteText<'a, U>,
-    ) -> Box<dyn Iterator<Item = StyledGrapheme<'a, U>> + 'a> {
-        let self_width = self.width();
-        match self_width {
-            Width::Bounded(w) if width >= w => {
-                return self.graphemes();
+                            Bound::Included(width.saturating_sub(symbol.bounded_width())),
+                        ));
+                        match slice {
+                            Some(text) => Some(format!("{}{}", text, symbol)),
+                            None => Some(format!("{}", symbol)),
+                        }
+                    }
+                    Left(None) | Right(None) => {
+                        let slice = target.slice_width((Bound::Unbounded, Bound::Included(width)));
+                        match slice {
+                            Some(text) => Some(format!("{}", text)),
+                            None => None,
+                        }
+                    }
+                    Right(Some(symbol)) => {
+                        let slice = target.slice_width((
+                            Bound::Unbounded,
+                            Bound::Included(width.saturating_sub(symbol.bounded_width())),
+                        ));
+                        match slice {
+                            Some(text) => Some(format!("{}{}", symbol, text)),
+                            None => Some(format!("{}", symbol)),
+                        }
+                    }
+                    Inner(s) => {
+                        let inner_width = if let Some(s) = s {
+                            s.bounded_width()
+                        } else {
+                            0
+                        };
+                        let target_width = width.saturating_sub(inner_width);
+                        let left_width = target_width / 2 + target_width % 2;
+                        let right_width = target_width / 2;
+                        let left_slice =
+                            target.slice_width((Bound::Unbounded, Bound::Included(left_width)));
+                        let right_slice =
+                            target.slice_width((Bound::Unbounded, Bound::Included(right_width)));
+                        match (s, left_slice, right_slice) {
+                            (Some(s), Some(left), Some(right)) => {
+                                Some(format!("{}{}{}", left, s, right))
+                            }
+                            (None, Some(left), Some(right)) => Some(format!("{}{}", left, right)),
+                            (Some(s), Some(left), None) => Some(format!("{}{}", left, s)),
+                            (None, Some(left), None) => Some(format!("{}", left)),
+                            (Some(s), None, Some(right)) => Some(format!("{}{}", s, right)),
+                            (None, None, Some(right)) => Some(format!("{}", right)),
+                            (Some(s), None, None) => Some(format!("{}", s)),
+                            (None, None, None) => None,
+                        }
+                    }
+                }
             }
-            _ => {}
-        }
-        let sym_width = symbol.bounded_width();
-        let text_width = width.saturating_sub(sym_width);
-        let w = text_width / 2;
-        if let Width::Bounded(self_width) = self_width {
-            Box::new(
-                self.slice_width((Bound::Unbounded, Bound::Included(w + text_width % 2)))
-                    .chain(symbol.graphemes())
-                    .chain(self.slice_width((
-                        Bound::Excluded(self_width.saturating_sub(w)),
-                        Bound::Unbounded,
-                    ))),
-            )
+        };
+        if let Inner(s) = self {
+            eprintln!("Inner");
+            let inner_width = if let Some(s) = s {
+                s.bounded_width()
+            } else {
+                0
+            };
+            eprintln!("w: {}", w);
+            let target_width = width.saturating_sub(inner_width);
+            let left_width = target_width / 2 + target_width % 2;
+            let right_width = target_width / 2;
+            eprintln!("left_width, right_width: {}, {}", left_width, right_width);
+            let left_slice = target.slice_width((Bound::Unbounded, Bound::Included(left_width)));
+            let right_slice = target.slice_width((
+                Bound::Excluded(w.saturating_sub(right_width)),
+                Bound::Unbounded,
+            ));
+            match (s, left_slice, right_slice) {
+                (Some(s), Some(left), Some(right)) => Some(format!("{}{}{}", left, s, right)),
+                (None, Some(left), Some(right)) => Some(format!("{}{}", left, right)),
+                (Some(s), Some(left), None) => Some(format!("{}{}", left, s)),
+                (None, Some(left), None) => Some(format!("{}", left)),
+                (Some(s), None, Some(right)) => Some(format!("{}{}", s, right)),
+                (None, None, Some(right)) => Some(format!("{}", right)),
+                (Some(s), None, None) => Some(format!("{}", s)),
+                (None, None, None) => None,
+            }
         } else {
-            Box::new(
-                self.slice_width((Bound::Unbounded, Bound::Included(w + text_width % 2)))
-                    .chain(symbol.graphemes())
-                    .chain(self.slice_width((Bound::Unbounded, Bound::Included(w)))),
-            )
+            let slice = match self {
+                Left(Some(symbol)) => (
+                    Bound::Unbounded,
+                    Bound::Included(width.saturating_sub(symbol.bounded_width())),
+                ),
+                Left(None) => (Bound::Unbounded, Bound::Included(width)),
+                Right(Some(symbol)) => (
+                    Bound::Excluded(w.saturating_sub(width.saturating_sub(symbol.bounded_width()))),
+                    Bound::Unbounded,
+                ),
+                Right(None) => (Bound::Excluded(w.saturating_sub(width)), Bound::Unbounded),
+                _ => unreachable!("Already caught the inner case"),
+            };
+            let sliced = target.slice_width(slice);
+            match (self, sliced) {
+                (Left(Some(sym)), None) | (Right(Some(sym)), None) => Some(format!("{}", sym)),
+                (Left(None), Some(txt)) | (Right(None), Some(txt)) => Some(format!("{}", txt)),
+                (Left(Some(sym)), Some(txt)) => Some(format!("{}{}", txt, sym)),
+                (Right(Some(sym)), Some(txt)) => Some(format!("{}{}", sym, txt)),
+                (Left(None), None) | (Right(None), None) => None,
+                _ => unreachable!("Already caught the inner case"),
+            }
         }
     }
 }

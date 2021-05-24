@@ -1,14 +1,13 @@
 use std::ops::{Bound, Deref, RangeBounds};
 /// Byte-indexed sliceables
-pub trait Sliceable<'a> {
-    type Output;
-    type Index;
-    fn slice<R>(&'a self, range: R) -> Option<Self::Output>
+pub(crate) trait Sliceable<'a> {
+    fn slice<R>(&'a self, range: R) -> Option<Self>
     where
-        R: std::ops::RangeBounds<Self::Index> + Clone;
+        R: std::ops::RangeBounds<usize> + Clone,
+        Self: Sized;
 }
 
-pub fn slice_string<'a, R, T>(string: &'a T, range: R) -> Option<&'a str>
+pub(crate) fn slice_string<'a, R, T>(string: &'a T, range: R) -> Option<&'a str>
 where
     R: RangeBounds<usize>,
     T: Deref<Target = str> + 'a,
