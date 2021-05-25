@@ -1,3 +1,4 @@
+#[cfg(test)]
 use ansi_term::{ANSIStrings, Style};
 use std::borrow::Borrow;
 /// Provides functionality to display strings with markup.
@@ -96,6 +97,7 @@ pub trait Painter {
     }
 }
 
+#[cfg(test)]
 impl Painter for Style {
     fn paint(&self, target: &str) -> String {
         Style::paint(*self, target).to_string()

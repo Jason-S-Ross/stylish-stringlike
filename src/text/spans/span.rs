@@ -1,8 +1,11 @@
 use super::{slice_string, BoundedWidth, Joinable, Painter, RawText, Sliceable, Spans};
+#[cfg(test)]
 use ansi_term::{ANSIString, Style};
 use std::borrow::Cow;
 use std::fmt;
-use std::ops::{Deref, RangeBounds};
+#[cfg(test)]
+use std::ops::Deref;
+use std::ops::RangeBounds;
 use unicode_width::UnicodeWidthStr;
 
 /// A span of text having a single style.
@@ -34,16 +37,20 @@ impl<'a, T: Painter + Clone> fmt::Display for Span<'a, T> {
         self.style.paint(self.content.as_ref()).fmt(fmt)
     }
 }
+
+#[cfg(test)]
 impl<'a> From<&Span<'a, Style>> for ANSIString<'a> {
     fn from(span: &Span<'a, Style>) -> ANSIString<'a> {
         span.style.paint(span.content.clone())
     }
 }
+#[cfg(test)]
 impl<'a> From<Span<'a, Style>> for ANSIString<'a> {
     fn from(span: Span<'a, Style>) -> ANSIString<'a> {
         span.style.paint(span.content)
     }
 }
+#[cfg(test)]
 impl<'a> From<&'a ANSIString<'a>> for Span<'a, Style> {
     fn from(string: &'a ANSIString<'a>) -> Self {
         let style = Cow::Borrowed(string.style_ref());
@@ -51,6 +58,7 @@ impl<'a> From<&'a ANSIString<'a>> for Span<'a, Style> {
         Span::new(style, content)
     }
 }
+#[cfg(test)]
 impl<'a> From<ANSIString<'_>> for Span<'a, Style> {
     fn from(string: ANSIString<'_>) -> Self {
         let style = Cow::Owned(*string.style_ref());
@@ -58,6 +66,7 @@ impl<'a> From<ANSIString<'_>> for Span<'a, Style> {
         Span::new(style, content)
     }
 }
+
 impl<'a, T: Clone + Default + PartialEq> Joinable<Span<'a, T>> for Span<'a, T> {
     type Output = Spans<T>;
     fn join(&self, other: &Span<T>) -> Self::Output {
