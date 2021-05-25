@@ -1,6 +1,6 @@
 mod search_tree;
 mod span;
-use super::{slice_string, BoundedWidth, Painter, RawText, Replaceable, Sliceable};
+use super::{slice_string, BoundedWidth, Joinable, Painter, RawText, Replaceable, Sliceable};
 
 use regex::{Regex, Replacer};
 use search_tree::SearchTree;
@@ -351,6 +351,26 @@ impl<T> BoundedWidth for Spans<T> {
     }
 }
 
+impl<T: PartialEq + Default + Clone> Joinable<Spans<T>> for Spans<T> {
+    type Output = Spans<T>;
+    fn join(&self, other: &Spans<T>) -> Self::Output {
+        let mut result: Spans<T> = Default::default();
+        result.push(self);
+        result.push(other);
+        result
+    }
+}
+
+impl<T: PartialEq + Default + Clone> Joinable<Span<'_, T>> for Spans<T> {
+    type Output = Spans<T>;
+    fn join(&self, other: &Span<'_, T>) -> Self::Output {
+        let mut result: Spans<T> = Default::default();
+        result.push(self);
+        result.push_span(other);
+        result
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -367,27 +387,19 @@ mod test {
         spans
     }
     #[test]
-    fn test_slice_width() {
+    fn test_slice_width_easy() {
         let text = strings_to_spans(&[Color::Green.paint("foo")]);
-        eprintln!("about to slice!");
-        let actual = text
-            .slice_width((Bound::Unbounded, Bound::Included(2)))
-            .unwrap();
-        eprintln!("sliced!");
+        let actual = text.slice_width(..2).unwrap();
         let expected = strings_to_spans(&[Color::Green.paint("fo")]);
         assert_eq!(expected, actual);
     }
     #[test]
-    fn test_slice_width_hard() {
+    fn test_slice_width_left_hard() {
         let text = strings_to_spans(&[Color::Green.paint("👱👱👱")]);
-        let actual = text
-            .slice_width((Bound::Unbounded, Bound::Included(3)))
-            .unwrap();
+        let actual = text.slice_width(..3).unwrap();
         let expected = strings_to_spans(&[Color::Green.paint("👱")]);
         assert_eq!(expected, actual);
-        let actual = text
-            .slice_width((Bound::Unbounded, Bound::Included(4)))
-            .unwrap();
+        let actual = text.slice_width(..4).unwrap();
         let expected = strings_to_spans(&[Color::Green.paint("👱👱")]);
         assert_eq!(expected, actual);
     }
@@ -464,8 +476,6 @@ mod test {
             Color::Blue.paint("ar bar ba"),
             Color::Green.paint("r"),
         ]);
-        eprintln!("expected: {}", target_text);
-        eprintln!("actual: {}", new_text);
         assert_eq!(new_text, target_text);
     }
     #[test]

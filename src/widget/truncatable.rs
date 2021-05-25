@@ -36,19 +36,14 @@ where
     fn truncate(&'a self, target: &'a T, width: usize) -> Option<String> {
         use TruncationStyle::*;
         let w = match target.width() {
-            Width::Bounded(w) if width >= w => {
-                return Some(format!(
-                    "{}",
-                    target.slice_width((Bound::Unbounded, Bound::Unbounded))?
-                ))
-            }
+            Width::Bounded(w) if width >= w => return Some(format!("{}", target.slice_width(..)?)),
             Width::Bounded(w) => w,
             Width::Unbounded => {
                 return match self {
                     Left(Some(symbol)) => {
                         let slice = target.slice_width((
                             Bound::Unbounded,
-                            Bound::Included(width.saturating_sub(symbol.bounded_width())),
+                            Bound::Excluded(width.saturating_sub(symbol.bounded_width())),
                         ));
                         match slice {
                             Some(text) => Some(format!("{}{}", text, symbol)),
@@ -56,16 +51,13 @@ where
                         }
                     }
                     Left(None) | Right(None) => {
-                        let slice = target.slice_width((Bound::Unbounded, Bound::Included(width)));
-                        match slice {
-                            Some(text) => Some(format!("{}", text)),
-                            None => None,
-                        }
+                        let slice = target.slice_width((Bound::Unbounded, Bound::Excluded(width)));
+                        slice.map(|text| format!("{}", text))
                     }
                     Right(Some(symbol)) => {
                         let slice = target.slice_width((
                             Bound::Unbounded,
-                            Bound::Included(width.saturating_sub(symbol.bounded_width())),
+                            Bound::Excluded(width.saturating_sub(symbol.bounded_width())),
                         ));
                         match slice {
                             Some(text) => Some(format!("{}{}", symbol, text)),
@@ -82,7 +74,7 @@ where
                         let left_width = target_width / 2 + target_width % 2;
                         let right_width = target_width / 2;
                         let left_slice =
-                            target.slice_width((Bound::Unbounded, Bound::Included(left_width)));
+                            target.slice_width((Bound::Unbounded, Bound::Excluded(left_width)));
                         let right_slice =
                             target.slice_width((Bound::Unbounded, Bound::Included(right_width)));
                         match (s, left_slice, right_slice) {
@@ -102,20 +94,17 @@ where
             }
         };
         if let Inner(s) = self {
-            eprintln!("Inner");
             let inner_width = if let Some(s) = s {
                 s.bounded_width()
             } else {
                 0
             };
-            eprintln!("w: {}", w);
             let target_width = width.saturating_sub(inner_width);
             let left_width = target_width / 2 + target_width % 2;
             let right_width = target_width / 2;
-            eprintln!("left_width, right_width: {}, {}", left_width, right_width);
-            let left_slice = target.slice_width((Bound::Unbounded, Bound::Included(left_width)));
+            let left_slice = target.slice_width((Bound::Unbounded, Bound::Excluded(left_width)));
             let right_slice = target.slice_width((
-                Bound::Excluded(w.saturating_sub(right_width)),
+                Bound::Included(w.saturating_sub(right_width)),
                 Bound::Unbounded,
             ));
             match (s, left_slice, right_slice) {
@@ -132,14 +121,14 @@ where
             let slice = match self {
                 Left(Some(symbol)) => (
                     Bound::Unbounded,
-                    Bound::Included(width.saturating_sub(symbol.bounded_width())),
+                    Bound::Excluded(width.saturating_sub(symbol.bounded_width())),
                 ),
                 Left(None) => (Bound::Unbounded, Bound::Included(width)),
                 Right(Some(symbol)) => (
-                    Bound::Excluded(w.saturating_sub(width.saturating_sub(symbol.bounded_width()))),
+                    Bound::Included(w.saturating_sub(width.saturating_sub(symbol.bounded_width()))),
                     Bound::Unbounded,
                 ),
-                Right(None) => (Bound::Excluded(w.saturating_sub(width)), Bound::Unbounded),
+                Right(None) => (Bound::Included(w.saturating_sub(width)), Bound::Unbounded),
                 _ => unreachable!("Already caught the inner case"),
             };
             let sliced = target.slice_width(slice);
