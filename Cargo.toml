@@ -1,11 +1,11 @@
 [package]
-name = "promptly"
+name = "stylish-stringlike"
 version = "0.1.0"
 authors = ["Jason Ross <jasonross1024@gmail.com>"]
 edition = "2018"
 
 [lib]
-name = "promptly"
+name = "stylish-stringlike"
 version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
