@@ -28,13 +28,27 @@ pub(crate) enum TruncationStyle<T: BoundedWidth + Display> {
     Inner(Option<T>),
 }
 
-impl<'a, T, S: BoundedWidth + Display> TruncationStrategy<'a, T> for TruncationStyle<S>
+impl<'a, T, S> TruncationStrategy<'a, T> for TruncationStyle<S>
 where
     T: WidthSliceable<'a> + HasWidth,
     T::Output: Display,
+    S: BoundedWidth + Display + WidthSliceable<'a>,
+    S::Output: Display,
 {
     fn truncate(&'a self, target: &'a T, width: usize) -> Option<String> {
         use TruncationStyle::*;
+        match self {
+            Left(Some(sym)) | Right(Some(sym)) | Inner(Some(sym))
+                if sym.bounded_width() >= width =>
+            {
+                if let Some(sym) = sym.slice_width(..width) {
+                    return Some(format!("{}", sym));
+                } else {
+                    return None;
+                }
+            }
+            _ => {}
+        }
         let w = match target.width() {
             Width::Bounded(w) if width >= w => return Some(format!("{}", target.slice_width(..)?)),
             Width::Bounded(w) => w,
@@ -69,7 +83,6 @@ where
                         let target_width = width.saturating_sub(inner_width);
                         let left_width = target_width / 2 + target_width % 2;
                         let right_width = target_width / 2;
-                        eprintln!("left_width: {}, right_width: {}", left_width, right_width);
                         let left_slice = target.slice_width(..left_width);
                         let right_slice = target.slice_width(..right_width);
                         match (s, left_slice, right_slice) {

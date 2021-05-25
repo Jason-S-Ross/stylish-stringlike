@@ -425,4 +425,84 @@ mod test {
         );
         assert_eq!(expected, actual);
     }
+    #[test]
+    fn trunctate_infinite_none_left() {
+        let span = Span::<Style>::new(
+            Cow::Owned(Color::Blue.normal()),
+            Cow::Owned("=".to_string()),
+        );
+        use std::ops::Bound;
+        span.slice_width((Bound::Unbounded, Bound::Included(5)));
+        let repeat_widget = Repeat::new(span);
+        let truncator_style = Color::Black.normal();
+        let truncator_text = ".";
+        let truncator_span = make_spans(&truncator_style, truncator_text);
+        let truncation = TruncationStyle::Left(Some(truncator_span));
+        let repeat_text_widget = TextWidget::new(&repeat_widget, &truncation);
+        let mut hbox = HBox::new();
+        hbox.push(&repeat_text_widget);
+        let actual = format!("{}", hbox.truncate(0));
+        let expected = String::new();
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn trunctate_infinite_none_right() {
+        let span = Span::<Style>::new(
+            Cow::Owned(Color::Blue.normal()),
+            Cow::Owned("=".to_string()),
+        );
+        use std::ops::Bound;
+        span.slice_width((Bound::Unbounded, Bound::Included(5)));
+        let repeat_widget = Repeat::new(span);
+        let truncator_style = Color::Black.normal();
+        let truncator_text = ".";
+        let truncator_span = make_spans(&truncator_style, truncator_text);
+        let truncation = TruncationStyle::Right(Some(truncator_span));
+        let repeat_text_widget = TextWidget::new(&repeat_widget, &truncation);
+        let mut hbox = HBox::new();
+        hbox.push(&repeat_text_widget);
+        let actual = format!("{}", hbox.truncate(0));
+        let expected = String::new();
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn trunctate_infinite_none_inner() {
+        let span = Span::<Style>::new(
+            Cow::Owned(Color::Blue.normal()),
+            Cow::Owned("=".to_string()),
+        );
+        use std::ops::Bound;
+        span.slice_width((Bound::Unbounded, Bound::Included(5)));
+        let repeat_widget = Repeat::new(span);
+        let truncator_style = Color::Black.normal();
+        let truncator_text = ".";
+        let truncator_span = make_spans(&truncator_style, truncator_text);
+        let truncation = TruncationStyle::Inner(Some(truncator_span));
+        let repeat_text_widget = TextWidget::new(&repeat_widget, &truncation);
+        let mut hbox = HBox::new();
+        hbox.push(&repeat_text_widget);
+        let actual = format!("{}", hbox.truncate(0));
+        let expected = String::new();
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn trunctate_infinite_only_symbol() {
+        let span = Span::<Style>::new(
+            Cow::Owned(Color::Blue.normal()),
+            Cow::Owned("=".to_string()),
+        );
+        use std::ops::Bound;
+        span.slice_width((Bound::Unbounded, Bound::Included(5)));
+        let repeat_widget = Repeat::new(span);
+        let truncator_style = Color::Black.normal();
+        let truncator_text = ".";
+        let truncator_span = make_spans(&truncator_style, truncator_text);
+        let truncation = TruncationStyle::Inner(Some(truncator_span));
+        let repeat_text_widget = TextWidget::new(&repeat_widget, &truncation);
+        let mut hbox = HBox::new();
+        hbox.push(&repeat_text_widget);
+        let actual = format!("{}", hbox.truncate(1));
+        let expected = format!("{}", truncator_style.paint(truncator_text));
+        assert_eq!(expected, actual);
+    }
 }

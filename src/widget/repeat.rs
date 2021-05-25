@@ -34,6 +34,7 @@ where
     where
         R: RangeBounds<usize>,
     {
+        use std::ops::Bound::*;
         fn shift_range<R: RangeBounds<usize>>(
             range: &R,
             shift: i32,
@@ -45,7 +46,6 @@ where
                     target + shift as usize
                 }
             }
-            use std::ops::Bound::*;
             let start = match range.start_bound() {
                 Excluded(s) => Excluded(ss(*s, shift)),
                 Included(s) => Included(ss(*s, shift)),
@@ -53,10 +53,29 @@ where
             };
             let end = match range.end_bound() {
                 Excluded(e) => Excluded(ss(*e, shift)),
-                Included(e) => Included(ss(*e, shift)),
+                Included(e) => {
+                    if *e as i32 + shift < 0 {
+                        Excluded(0)
+                    } else {
+                        Included(ss(*e, shift))
+                    }
+                }
                 Unbounded => return None,
             };
             Some((start, end))
+        }
+        let target_width = match (range.start_bound(), range.end_bound()) {
+            (_, Unbounded) => return None,
+            (Unbounded, Excluded(e)) => *e,
+            (Unbounded, Included(e)) => *e + 1,
+            (Included(s), Excluded(e)) => e.saturating_sub(*s),
+            (Included(s), Included(e)) => (*e + 1).saturating_sub(*s),
+            (Excluded(s), Excluded(e)) => e.saturating_sub(*s + 1),
+            (Excluded(s), Included(e)) => (*e + 1).saturating_sub(*s + 1),
+        };
+        eprintln!("target_width: {}", target_width);
+        if target_width == 0 {
+            return None;
         }
         let self_width = self.content.bounded_width();
 
@@ -94,6 +113,51 @@ mod test {
     use ansi_term::{Color, Style};
     use std::borrow::Cow;
     use std::ops::Bound;
+    #[test]
+    fn make_repeat_trivial_null() {
+        let span = Span::<Style>::new(
+            Cow::Owned(Color::Yellow.normal()),
+            Cow::Owned(String::from("")),
+        );
+        let repeat = Repeat::new(span);
+        let actual = repeat.slice_width(1..100);
+        let expected = None;
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn make_repeat_trivial_empty() {
+        let span = Span::<Style>::new(
+            Cow::Owned(Color::Yellow.normal()),
+            Cow::Owned(String::from("0")),
+        );
+        let repeat = Repeat::new(span);
+        let actual = repeat.slice_width(0..0);
+        let expected = None;
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn make_repeat_trivial_inclusive() {
+        let span = Span::<Style>::new(
+            Cow::Owned(Color::Yellow.normal()),
+            Cow::Owned(String::from("0")),
+        );
+        let repeat = Repeat::new(span);
+        let res = repeat.slice_width(..=0);
+        let actual = format!("{}", res.unwrap());
+        let expected = format!("{}", Color::Yellow.paint("0"));
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn make_repeat_trivial_unbounded() {
+        let span = Span::<Style>::new(
+            Cow::Owned(Color::Yellow.normal()),
+            Cow::Owned(String::from("0")),
+        );
+        let repeat = Repeat::new(span);
+        let actual = repeat.slice_width(0..);
+        let expected = None;
+        assert_eq!(expected, actual);
+    }
     #[test]
     fn make_repeat_trivial_single() {
         let span = Span::<Style>::new(
@@ -140,6 +204,44 @@ mod test {
         let res = repeat.slice_width(..3);
         let actual = format!("{}", res.unwrap());
         let expected = format!("{}", Color::Yellow.paint("012"));
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn make_repeat_mid_inclusive() {
+        let span = Span::<Style>::new(
+            Cow::Owned(Color::Yellow.normal()),
+            Cow::Owned(String::from("01234")),
+        );
+        let repeat = Repeat::new(span);
+        let res = repeat.slice_width(1..=3);
+        let actual = format!("{}", res.unwrap());
+        let expected = format!("{}", Color::Yellow.paint("123"));
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn make_repeat_mid_ex_in() {
+        use std::ops::Bound::*;
+        let span = Span::<Style>::new(
+            Cow::Owned(Color::Yellow.normal()),
+            Cow::Owned(String::from("01234")),
+        );
+        let repeat = Repeat::new(span);
+        let res = repeat.slice_width((Excluded(1), Included(3)));
+        let actual = format!("{}", res.unwrap());
+        let expected = format!("{}", Color::Yellow.paint("23"));
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn make_repeat_mid_ex_ex() {
+        use std::ops::Bound::*;
+        let span = Span::<Style>::new(
+            Cow::Owned(Color::Yellow.normal()),
+            Cow::Owned(String::from("01234")),
+        );
+        let repeat = Repeat::new(span);
+        let res = repeat.slice_width((Excluded(1), Excluded(3)));
+        let actual = format!("{}", res.unwrap());
+        let expected = format!("{}", Color::Yellow.paint("2"));
         assert_eq!(expected, actual);
     }
     #[test]
