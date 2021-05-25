@@ -115,7 +115,6 @@ mod test {
     use crate::text::*;
     use ansi_term::{Color, Style};
     use std::borrow::Cow;
-    use std::ops::Bound;
     #[test]
     fn make_repeat_trivial_null() {
         let span = Span::<Style>::new(

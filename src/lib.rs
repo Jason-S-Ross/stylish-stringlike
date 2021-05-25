@@ -18,9 +18,7 @@ pub mod widget;
 #[cfg(test)]
 mod test {
     use super::*;
-    use ansi_term::{ANSIString, ANSIStrings, Color, Style};
-    use std::borrow::Cow;
-    use std::path::Path;
+    use ansi_term::{ANSIString, Color, Style};
     use text::*;
     use widget::*;
     fn make_spans(style: &Style, text: &str) -> Spans<Style> {
@@ -45,7 +43,6 @@ mod test {
         let split = spans.split_style("::").collect::<Vec<_>>();
         let ellipsis_string = Color::Blue.paint("…");
         let ellipsis_span = make_spans(&Color::Blue.normal(), "…");
-        let mut hbox = HBox::new();
         let truncation = TruncationStyle::Inner(Some(ellipsis_span));
         let widget_container = split
             .iter()

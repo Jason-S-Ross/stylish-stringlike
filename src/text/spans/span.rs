@@ -92,7 +92,7 @@ impl<'a, T: Clone> BoundedWidth for Span<'a, T> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::text::{Sliceable, Split, Splitable, Width, WidthSliceable};
+    use crate::text::{Sliceable, WidthSliceable};
     use ansi_term::Color;
 
     #[test]
@@ -238,7 +238,6 @@ mod test {
             Cow::Owned(Color::Black.normal()),
             Cow::Owned(String::from("😼🙋👩📪")),
         );
-        use std::ops::Bound;
         let res = span.slice_width(1..6);
         let actual = format!("{}", res.unwrap());
         let expected = format!("{}", Color::Black.paint("🙋👩"));
@@ -250,7 +249,6 @@ mod test {
             Cow::Owned(Color::Black.normal()),
             Cow::Owned(String::from("😼🙋👩📪")),
         );
-        use std::ops::Bound;
         let actual = span.slice_width(8..);
         let expected = None;
         assert_eq!(expected, actual);
@@ -261,7 +259,6 @@ mod test {
             Cow::Owned(Color::Black.normal()),
             Cow::Owned(String::from("😼🙋👩📪")),
         );
-        use std::ops::Bound;
         let actual = span.slice_width(7..);
         let expected = None;
         assert_eq!(expected, actual);
@@ -272,7 +269,6 @@ mod test {
             Cow::Owned(Color::Black.normal()),
             Cow::Owned(String::from("😼🙋👩📪")),
         );
-        use std::ops::Bound;
         let res = span.slice_width(6..);
         let actual = format!("{}", res.unwrap());
         let expected = format!("{}", Color::Black.paint("📪"));
@@ -284,7 +280,6 @@ mod test {
             Cow::Owned(Color::Black.normal()),
             Cow::Owned(String::from("😼🙋👩📪")),
         );
-        use std::ops::Bound;
         let res = span.slice_width(..);
         let actual = format!("{}", res.unwrap());
         let expected = format!("{}", Color::Black.paint("😼🙋👩📪"));

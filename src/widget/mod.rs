@@ -14,7 +14,6 @@ mod test {
     use crate::widget::truncatable::TruncationStyle;
     use ansi_term::{ANSIStrings, Color, Style};
     use std::borrow::Cow;
-    use text_widget::Fitable;
     fn make_spans(style: &Style, text: &str) -> Spans<Style> {
         let ansistring = style.paint(text);
         let span: Span<Style> = ansistring.into();
@@ -285,7 +284,6 @@ mod test {
     }
     #[test]
     fn truncate_trivial_inner() {
-        use std::ops::{Bound, RangeBounds};
         let style = Color::Red.normal();
         let content = "0123456";
         let text = make_spans(&style, content);

@@ -385,7 +385,6 @@ mod test {
     use super::*;
     use crate::text::{Sliceable, Split, Splitable, WidthSliceable};
     use ansi_term::{ANSIString, ANSIStrings, Color, Style};
-    use std::ops::Bound;
     fn strings_to_spans(strings: &[ANSIString<'_>]) -> Spans<Style> {
         strings.iter().map(Span::<Style>::from).collect()
     }
@@ -605,7 +604,6 @@ mod test {
             Color::Black.paint("-"),
             Color::Blue.paint("$3"),
         ]);
-        let foo = "555.444.3333";
         let regex = Regex::new(r"(\d{3})[.-](\d{3})[.-](\d{4})").unwrap();
         for name in regex.capture_names() {
             println!("name: {:#?}", name);
