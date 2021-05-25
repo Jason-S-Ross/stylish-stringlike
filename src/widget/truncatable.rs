@@ -41,24 +41,20 @@ where
             Width::Unbounded => {
                 return match self {
                     Left(Some(symbol)) => {
-                        let slice = target.slice_width((
-                            Bound::Unbounded,
-                            Bound::Excluded(width.saturating_sub(symbol.bounded_width())),
-                        ));
+                        let slice =
+                            target.slice_width(..width.saturating_sub(symbol.bounded_width()));
                         match slice {
                             Some(text) => Some(format!("{}{}", text, symbol)),
                             None => Some(format!("{}", symbol)),
                         }
                     }
                     Left(None) | Right(None) => {
-                        let slice = target.slice_width((Bound::Unbounded, Bound::Excluded(width)));
+                        let slice = target.slice_width(..width);
                         slice.map(|text| format!("{}", text))
                     }
                     Right(Some(symbol)) => {
-                        let slice = target.slice_width((
-                            Bound::Unbounded,
-                            Bound::Excluded(width.saturating_sub(symbol.bounded_width())),
-                        ));
+                        let slice =
+                            target.slice_width(..width.saturating_sub(symbol.bounded_width()));
                         match slice {
                             Some(text) => Some(format!("{}{}", symbol, text)),
                             None => Some(format!("{}", symbol)),
@@ -73,10 +69,9 @@ where
                         let target_width = width.saturating_sub(inner_width);
                         let left_width = target_width / 2 + target_width % 2;
                         let right_width = target_width / 2;
-                        let left_slice =
-                            target.slice_width((Bound::Unbounded, Bound::Excluded(left_width)));
-                        let right_slice =
-                            target.slice_width((Bound::Unbounded, Bound::Included(right_width)));
+                        eprintln!("left_width: {}, right_width: {}", left_width, right_width);
+                        let left_slice = target.slice_width(..left_width);
+                        let right_slice = target.slice_width(..right_width);
                         match (s, left_slice, right_slice) {
                             (Some(s), Some(left), Some(right)) => {
                                 Some(format!("{}{}{}", left, s, right))
@@ -102,11 +97,8 @@ where
             let target_width = width.saturating_sub(inner_width);
             let left_width = target_width / 2 + target_width % 2;
             let right_width = target_width / 2;
-            let left_slice = target.slice_width((Bound::Unbounded, Bound::Excluded(left_width)));
-            let right_slice = target.slice_width((
-                Bound::Included(w.saturating_sub(right_width)),
-                Bound::Unbounded,
-            ));
+            let left_slice = target.slice_width(..left_width);
+            let right_slice = target.slice_width(w.saturating_sub(right_width)..);
             match (s, left_slice, right_slice) {
                 (Some(s), Some(left), Some(right)) => Some(format!("{}{}{}", left, s, right)),
                 (None, Some(left), Some(right)) => Some(format!("{}{}", left, right)),
