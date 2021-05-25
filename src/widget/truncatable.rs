@@ -2,7 +2,8 @@ use crate::text::{BoundedWidth, HasWidth, Width, WidthSliceable};
 use std::fmt::Display;
 use std::ops::Bound;
 
-pub(crate) trait Truncateable<'a>: HasWidth + WidthSliceable<'a> {}
+/// Objects that have width and are sliceable on width are truncateable.
+pub trait Truncateable<'a>: HasWidth + WidthSliceable<'a> {}
 
 impl<'a, T> Truncateable<'a> for T
 where
@@ -11,19 +12,25 @@ where
 {
 }
 
-pub(crate) trait TruncationStrategy<'a, T>
+/// Functionality for truncating objects using some strategy.
+pub trait TruncationStrategy<'a, T>
 where
     T: WidthSliceable<'a> + HasWidth,
     T::Output: Display,
 {
+    /// Truncates target to width. Output should have a width equal to width.
     fn truncate(&'a self, target: &'a T, width: usize) -> Option<String>;
 }
 
-pub(crate) enum TruncationStyle<T: BoundedWidth + Display> {
+/// Styles for simple truncation.
+pub enum TruncationStyle<T: BoundedWidth + Display> {
+    /// Keeps the left text, truncates text on the right. Optional symbol added when truncation occurs.
     #[allow(dead_code)]
     Left(Option<T>),
+    /// Keeps the right text, truncates text on the left. Optional symbol added when truncation occurs.
     #[allow(dead_code)]
     Right(Option<T>),
+    /// Keeps the outside text, truncates text on the inside. Optional symbol added when truncation occurs.
     #[allow(dead_code)]
     Inner(Option<T>),
 }

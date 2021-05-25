@@ -1,23 +1,24 @@
 use crate::text::Width;
 use crate::widget::Fitable;
 
-#[allow(dead_code)]
-pub(crate) struct HBox<'a> {
+/// A displayable box of text widgets.
+#[derive(Default)]
+pub struct HBox<'a> {
     elements: Vec<&'a dyn Fitable>,
 }
 
 impl<'a> HBox<'a> {
-    #[allow(dead_code)]
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         HBox {
             elements: Vec::new(),
         }
     }
-    pub(crate) fn push(&mut self, element: &'a dyn Fitable) {
+    /// Adds an element.
+    pub fn push(&mut self, element: &'a dyn Fitable) {
         self.elements.push(element);
     }
-    #[allow(dead_code)]
-    pub(crate) fn truncate(&'a self, width: usize) -> String {
+    /// Truncates this widget to a given size.
+    pub fn truncate(&'a self, width: usize) -> String {
         let mut space = width;
         let mut todo: Vec<(usize, _)> = self
             .elements

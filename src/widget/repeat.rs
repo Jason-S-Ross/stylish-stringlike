@@ -3,14 +3,15 @@ use std::ops::{Bound, RangeBounds};
 
 use std::marker::PhantomData;
 
+/// A text widget that repeats its content arbitrarily many times.
 #[derive(Debug)]
-pub(crate) struct Repeat<'a, T> {
+pub struct Repeat<'a, T> {
     content: T,
     _marker: PhantomData<&'a ()>,
 }
 
 impl<'a, T> Repeat<'a, T> {
-    pub(crate) fn new(content: T) -> Repeat<'a, T> {
+    pub fn new(content: T) -> Repeat<'a, T> {
         Repeat {
             content,
             _marker: Default::default(),
@@ -73,7 +74,6 @@ where
             (Excluded(s), Excluded(e)) => e.saturating_sub(*s + 1),
             (Excluded(s), Included(e)) => (*e + 1).saturating_sub(*s + 1),
         };
-        eprintln!("target_width: {}", target_width);
         if target_width == 0 {
             return None;
         }
@@ -100,6 +100,9 @@ where
                 return None;
             }
             segment += 1;
+            if segment > 10 {
+                return Some(res);
+            }
         }
 
         Some(res)

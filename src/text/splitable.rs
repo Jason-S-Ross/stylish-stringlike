@@ -2,12 +2,18 @@ use super::{RawText, Sliceable};
 use std::iter::once;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct Split<T, U> {
+/// A segment of text split on a delimiter.
+/// The delimiter and the segment are both included because
+/// the delimiter may have a style applied to it.
+pub struct Split<T, U> {
     pub delim: Option<T>,
     pub segment: Option<U>,
 }
 
-pub(crate) trait Splitable<'a, T> {
+/// Text objects that can be split on a delimiter or pattern
+pub trait Splitable<'a, T> {
+    // TODO: Rename this split
+    /// Split a text object on the given pattern
     fn split_style(&'a self, pattern: T) -> Box<dyn Iterator<Item = Split<Self, Self>> + 'a>
     where
         Self: Sized;

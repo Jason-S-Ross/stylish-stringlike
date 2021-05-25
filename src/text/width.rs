@@ -1,9 +1,12 @@
 use std::iter::Sum;
 use std::ops::{Add, AddAssign};
 
+/// An enum representing the unicode width of a (possibly infinte) text object
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub(crate) enum Width {
+pub enum Width {
+    /// A finite width
     Bounded(usize),
+    /// An infinite width
     Unbounded,
 }
 
@@ -29,6 +32,58 @@ impl Sum for Width {
         iter.fold(Width::Bounded(0), |a, b| a + b)
     }
 }
+
+/// Support for returning the unicode width of a text object
+pub trait HasWidth {
+    /// Return the unicode width of an object
+    ///
+    /// # Example
+    /// ```
+    /// use stylish_stringlike::text::{HasWidth, Width};
+    /// let foo = "foobar";
+    /// assert_eq!(foo.width(), Width::Bounded(6));
+    /// let bar = String::from("🙈🙉🙊");
+    /// assert_eq!(bar.width(), Width::Bounded(6));
+    /// ```
+    fn width(&self) -> Width;
+}
+
+impl<T> HasWidth for T
+where
+    T: BoundedWidth,
+{
+    fn width(&self) -> Width {
+        Width::Bounded(self.bounded_width())
+    }
+}
+
+/// Support for returing the unicode width of text objects that are finite
+pub trait BoundedWidth {
+    /// Return the finite unicode width of an object
+    ///
+    /// # Example
+    /// ```
+    /// use stylish_stringlike::text::BoundedWidth;
+    /// let foo = "foobar";
+    /// assert_eq!(foo.bounded_width(), 6);
+    /// let bar = String::from("🙈🙉🙊");
+    /// assert_eq!(bar.bounded_width(), 6);
+    /// ```
+    fn bounded_width(&self) -> usize;
+}
+
+impl BoundedWidth for String {
+    fn bounded_width(&self) -> usize {
+        unicode_width::UnicodeWidthStr::width(self.as_str())
+    }
+}
+
+impl BoundedWidth for &str {
+    fn bounded_width(&self) -> usize {
+        unicode_width::UnicodeWidthStr::width(*self)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

@@ -5,23 +5,24 @@ use std::fmt;
 use std::ops::{Deref, RangeBounds};
 use unicode_width::UnicodeWidthStr;
 
+/// A span of text having a single style.
 #[derive(Debug, Default, PartialEq)]
-pub(crate) struct Span<'a, T: Clone> {
+pub struct Span<'a, T: Clone> {
     style: Cow<'a, T>,
     content: Cow<'a, str>,
 }
 
 impl<'a, T: Clone> Span<'a, T> {
-    pub(crate) fn style(&self) -> &Cow<'a, T> {
+    pub fn style(&self) -> &Cow<'a, T> {
         &self.style
     }
-    pub(crate) fn content(&self) -> &Cow<'a, str> {
+    pub fn content(&self) -> &Cow<'a, str> {
         &self.content
     }
-    pub(crate) fn new(style: Cow<'a, T>, content: Cow<'a, str>) -> Span<'a, T> {
+    pub fn new(style: Cow<'a, T>, content: Cow<'a, str>) -> Span<'a, T> {
         Span { style, content }
     }
-    pub(crate) fn borrowed(style: &'a T, content: &'a str) -> Span<'a, T> {
+    pub fn borrowed(style: &'a T, content: &'a str) -> Span<'a, T> {
         Span {
             style: Cow::Borrowed(style),
             content: Cow::Borrowed(content),

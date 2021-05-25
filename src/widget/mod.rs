@@ -1,11 +1,11 @@
-pub mod hbox;
-pub mod repeat;
-pub mod text_widget;
-pub mod truncatable;
-pub(crate) use hbox::*;
-pub(crate) use repeat::*;
-pub(crate) use text_widget::*;
-pub(crate) use truncatable::{Truncateable, TruncationStrategy, TruncationStyle};
+mod hbox;
+mod repeat;
+mod text_widget;
+mod truncatable;
+pub use hbox::*;
+pub use repeat::*;
+pub use text_widget::*;
+pub use truncatable::*;
 
 #[cfg(test)]
 mod test {

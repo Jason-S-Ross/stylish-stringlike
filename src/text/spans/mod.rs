@@ -4,7 +4,7 @@ use super::{slice_string, BoundedWidth, Joinable, Painter, RawText, Replaceable,
 
 use regex::{Regex, Replacer};
 use search_tree::SearchTree;
-pub(crate) use span::Span;
+pub use span::Span;
 use std::borrow::Borrow;
 use std::borrow::Cow;
 use std::fmt;
@@ -13,8 +13,14 @@ use std::iter::{once, repeat};
 use std::ops::{Add, AddAssign, RangeBounds};
 use unicode_width::UnicodeWidthStr;
 
+// TODO: Get rid of Add, AddAssign, push, and push_span and use Joinable instead.
+// TODO: Can we use a blanket impl for Replaceable over Joinable, RawText, and Sliceable types,
+// instead of implementing it for this explicitly?
+/// A string with various styles applied to the span.
+/// Styles do not not cascade. Only the most recent style
+/// applies to the current character.
 #[derive(Clone, Default, Debug)]
-pub(crate) struct Spans<T> {
+pub struct Spans<T> {
     content: String,
     /// Byte-indexed map of spans
     spans: SearchTree<T>,
@@ -68,7 +74,8 @@ impl<T> Spans<T> {
             )
         }
     }
-    pub(crate) fn spans(&self) -> impl Iterator<Item = Span<'_, T>>
+    /// Returns the spans of text contained in this object.
+    pub fn spans(&self) -> impl Iterator<Item = Span<'_, T>>
     where
         T: Clone + Default,
     {
@@ -89,7 +96,8 @@ impl<T> Spans<T> {
                 }
             })
     }
-    pub(crate) fn push(&mut self, other: &Self) -> &Self
+    /// Pushes another [`Spans`] onto this.
+    pub fn push(&mut self, other: &Self) -> &Self
     where
         T: PartialEq + Clone,
     {
@@ -101,7 +109,8 @@ impl<T> Spans<T> {
         self.content.push_str(&other.content);
         self
     }
-    pub(crate) fn push_span(&mut self, other: &Span<'_, T>) -> &Self
+    /// Pushes a [`Span`] onto this.
+    pub fn push_span(&mut self, other: &Span<'_, T>) -> &Self
     where
         T: PartialEq + Clone,
     {

@@ -1,17 +1,28 @@
-mod text;
-mod widget;
-pub(crate) use text::*;
-pub(crate) use widget::*;
+//! This is a libary for creating styled spans of text. The style can be
+//! something like an ANSI terminal color/format, or it could be some
+//! markup like enclosing text in html tags.
+//!
+//!
+//! ## Structure
+//! This crate is subdivided into two modules: [`text`] and [`widget`].
+//!
+//! [`text`] provides string-like functionality for styled pieces of text.
+//! Methods such as replacing, slicing, and splitting are supported while
+//! respecting existing style delimiters.
+//!
+//! [`widget`] provides functionality for displaying text objects in useful ways,
+//! such as truncation with a symbol, or repeating a sequence.
+pub mod text;
+pub mod widget;
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::text::{Span, Spans};
-    use crate::widget::Repeat;
     use ansi_term::{ANSIString, ANSIStrings, Color, Style};
     use std::borrow::Cow;
     use std::path::Path;
-    use truncatable::{Truncateable, TruncationStyle};
+    use text::*;
+    use widget::*;
     fn make_spans(style: &Style, text: &str) -> Spans<Style> {
         let ansistring: ANSIString = Style::paint(*style, text);
         let span: Span<Style> = ansistring.into();

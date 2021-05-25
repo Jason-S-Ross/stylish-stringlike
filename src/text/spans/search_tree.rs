@@ -32,19 +32,6 @@ impl<V> SearchTree<V> {
     {
         self.tree.range(range)
     }
-    pub fn search_left<T>(&self, key: &T) -> Option<&V>
-    where
-        T: Ord,
-        usize: Borrow<T> + Ord,
-    {
-        if let Some(ref v) = self.tree.get(key) {
-            Some(v)
-        } else if let Some((_last_key, ref v)) = self.tree.range(..key).last() {
-            Some(v)
-        } else {
-            None
-        }
-    }
     pub fn insert(&mut self, key: usize, value: V) -> Option<V> {
         self.tree.insert(key, value)
     }
@@ -52,7 +39,7 @@ impl<V> SearchTree<V> {
         self.tree.iter()
     }
     #[allow(dead_code)]
-    pub(crate) fn keys(&self) -> Vec<usize> {
+    pub fn keys(&self) -> Vec<usize> {
         self.tree.keys().cloned().collect()
     }
     pub fn trim(&mut self, max_key: usize) {
@@ -93,7 +80,7 @@ impl<V> SearchTree<V> {
     }
     /// Copy values in a range from another tree into this tree,
     /// shifting the keys by some amount.
-    pub(crate) fn copy_with_shift<T, R, S>(
+    pub fn copy_with_shift<T, R, S>(
         &mut self,
         from: &SearchTree<V>,
         range: R,
@@ -190,33 +177,6 @@ mod test {
         actual.dedup();
         let mut expected = SearchTree::default();
         expected.insert(1, 3);
-        assert_eq!(expected, actual);
-    }
-    #[test]
-    fn search_left() {
-        let mut tree = SearchTree::default();
-        tree.insert(1, 2);
-        tree.insert(3, 4);
-        let actual = tree.search_left(&2);
-        let expected = Some(&2);
-        assert_eq!(expected, actual);
-    }
-    #[test]
-    fn search_on() {
-        let mut tree = SearchTree::default();
-        tree.insert(1, 2);
-        tree.insert(3, 4);
-        let actual = tree.search_left(&1);
-        let expected = Some(&2);
-        assert_eq!(expected, actual);
-    }
-    #[test]
-    fn search_missing() {
-        let mut tree = SearchTree::default();
-        tree.insert(1, 2);
-        tree.insert(3, 4);
-        let actual = tree.search_left(&0);
-        let expected = None;
         assert_eq!(expected, actual);
     }
     #[test]
