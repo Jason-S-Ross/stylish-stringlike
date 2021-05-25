@@ -1,6 +1,5 @@
 mod joinable;
 mod painter;
-mod repeat;
 mod replaceable;
 mod sliceable;
 mod spans;
@@ -8,7 +7,6 @@ mod splitable;
 mod width;
 pub(crate) use joinable::Joinable;
 pub(crate) use painter::*;
-pub(crate) use repeat::*;
 pub(crate) use replaceable::*;
 pub(crate) use sliceable::*;
 pub(crate) use spans::*;

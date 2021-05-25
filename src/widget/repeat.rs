@@ -34,53 +34,90 @@ where
     where
         R: RangeBounds<usize>,
     {
+        fn shift_range<R: RangeBounds<usize>>(
+            range: &R,
+            shift: i32,
+        ) -> Option<(Bound<usize>, Bound<usize>)> {
+            fn ss(target: usize, shift: i32) -> usize {
+                if shift < 0 {
+                    target.saturating_sub(shift.abs() as usize)
+                } else {
+                    target + shift as usize
+                }
+            }
+            use std::ops::Bound::*;
+            let start = match range.start_bound() {
+                Excluded(s) => Excluded(ss(*s, shift)),
+                Included(s) => Included(ss(*s, shift)),
+                Unbounded => Unbounded,
+            };
+            let end = match range.end_bound() {
+                Excluded(e) => Excluded(ss(*e, shift)),
+                Included(e) => Included(ss(*e, shift)),
+                Unbounded => return None,
+            };
+            Some((start, end))
+        }
         let self_width = self.content.bounded_width();
-        let (start, end) = match (range.start_bound(), range.end_bound()) {
-            (Bound::Excluded(s), Bound::Excluded(e)) => (s.saturating_sub(1), *e),
-            (Bound::Excluded(s), Bound::Included(e)) => (s.saturating_sub(1), *e + 1),
-            (Bound::Included(s), Bound::Excluded(e)) => (*s, *e),
-            (Bound::Included(s), Bound::Included(e)) => (*s, *e + 1),
-            (Bound::Unbounded, Bound::Excluded(e)) => (0, *e),
-            (Bound::Unbounded, Bound::Included(e)) => (0, *e + 1),
-            _ => return None,
-        };
-        let (norm_start, norm_end) = {
-            let shift = (start / self_width) * self_width;
-            (start - shift, end - shift)
-        };
-        let self_range = 0..self.content.bounded_width();
-        if self_range.contains(&norm_start) && self_range.contains(&norm_end) {
-            // This range "fits" inside of ourselves so it's fine
-            let mut res: U = Default::default();
-            if let Some(s) = self.content.slice_width(start..end) {
-                res = res.join(&s);
-                return Some(res);
+
+        if self_width == 0 {
+            return None;
+        }
+        let mut res: U = Default::default();
+
+        let mut segment = 0;
+        let mut started = false;
+        loop {
+            let shifted_range = shift_range(&range, -((segment * self_width) as i32));
+            if let Some(shifted_range) = shifted_range {
+                let sliced = self.content.slice_width(shifted_range);
+                if let Some(sliced) = sliced {
+                    started = true;
+                    res = res.join(&sliced)
+                } else if started {
+                    break;
+                }
             } else {
                 return None;
             }
+            segment += 1;
         }
-        let num_repeats =
-            ((end.saturating_sub(1) / self_width) - (start / self_width)).saturating_sub(1);
-        let mut res: U = Default::default();
-        if let Some(s) = self.content.slice_width(norm_start..) {
-            res = res.join(&s);
-        }
-        for _ in 0..num_repeats {
-            res = res.join(&self.content);
-        }
-        if let Some(s) = self.content.slice_width(..norm_end % self_width) {
-            res = res.join(&s);
-        }
+
         Some(res)
     }
 }
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::text::*;
     use ansi_term::{Color, Style};
     use std::borrow::Cow;
     use std::ops::Bound;
+    #[test]
+    fn make_repeat_trivial_single() {
+        let span = Span::<Style>::new(
+            Cow::Owned(Color::Yellow.normal()),
+            Cow::Owned(String::from("0")),
+        );
+        let repeat = Repeat::new(span);
+        let res = repeat.slice_width(..1);
+        let actual = format!("{}", res.unwrap());
+        let expected = format!("{}", Color::Yellow.paint("0"));
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn make_repeat_trivial_multiple() {
+        let span = Span::<Style>::new(
+            Cow::Owned(Color::Yellow.normal()),
+            Cow::Owned(String::from("0")),
+        );
+        let repeat = Repeat::new(span);
+        let res = repeat.slice_width(..2);
+        let actual = format!("{}", res.unwrap());
+        let expected = format!("{}", Color::Yellow.paint("00"));
+        assert_eq!(expected, actual);
+    }
     #[test]
     fn make_repeat_long() {
         let span = Span::<Style>::new(

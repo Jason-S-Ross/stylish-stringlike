@@ -1,14 +1,16 @@
 pub mod hbox;
+pub mod repeat;
 pub mod text_widget;
 pub mod truncatable;
 pub(crate) use hbox::*;
+pub(crate) use repeat::*;
 pub(crate) use text_widget::*;
-pub(crate) use truncatable::{Truncateable, TruncationStrategy};
+pub(crate) use truncatable::{Truncateable, TruncationStrategy, TruncationStyle};
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::text::{Repeat, Span, Spans, WidthSliceable};
+    use crate::text::{Span, Spans, WidthSliceable};
     use crate::widget::truncatable::TruncationStyle;
     use ansi_term::{ANSIStrings, Color, Style};
     use std::borrow::Cow;
@@ -127,9 +129,8 @@ mod test {
         assert_eq!(expected, actual);
     }
     #[test]
-    #[cfg(feature = "ignore")]
     fn trunctate_infinite_left() {
-        let span = Span::new(
+        let span = Span::<Style>::new(
             Cow::Owned(Color::Blue.normal()),
             Cow::Owned("=".to_string()),
         );
@@ -262,9 +263,8 @@ mod test {
         assert_eq!(expected, actual);
     }
     #[test]
-    #[cfg(feature = "ignore")]
     fn trunctate_infinite_right() {
-        let repeat_widget = Repeat::new(Span::new(
+        let repeat_widget = Repeat::new(Span::<Style>::new(
             Cow::Owned(Color::Blue.normal()),
             Cow::Owned("=".to_string()),
         ));
@@ -403,9 +403,8 @@ mod test {
         assert_eq!(expected, actual);
     }
     #[test]
-    #[cfg(feature = "ignore")]
     fn trunctate_infinite_inner() {
-        let repeat_widget = Repeat::new(Span::new(
+        let repeat_widget = Repeat::new(Span::<Style>::new(
             Cow::Owned(Color::Blue.normal()),
             Cow::Owned("=".to_string()),
         ));

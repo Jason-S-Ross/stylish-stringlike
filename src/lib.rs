@@ -6,7 +6,8 @@ pub(crate) use widget::*;
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::text::{Repeat, Span, Spans};
+    use crate::text::{Span, Spans};
+    use crate::widget::Repeat;
     use ansi_term::{ANSIString, ANSIStrings, Color, Style};
     use std::borrow::Cow;
     use std::path::Path;
