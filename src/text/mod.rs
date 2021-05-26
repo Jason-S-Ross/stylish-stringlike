@@ -53,3 +53,12 @@ impl RawText for String {
         self.as_str()
     }
 }
+
+impl RawText for &str {
+    fn raw(&self) -> String {
+        self.to_string()
+    }
+    fn raw_ref(&self) -> &str {
+        *self
+    }
+}
