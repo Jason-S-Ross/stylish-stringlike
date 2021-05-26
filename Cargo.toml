@@ -3,6 +3,8 @@ name = "stylish-stringlike"
 version = "0.1.0"
 authors = ["Jason Ross <jasonross1024@gmail.com>"]
 edition = "2018"
+description = "API for string-like objects that have styles applied."
+readme = "README.md"
 
 [lib]
 name = "stylish_stringlike"
