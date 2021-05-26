@@ -12,7 +12,43 @@ pub struct Split<T, U> {
 
 /// Text objects that can be split on a delimiter or pattern
 pub trait Splitable<'a, T> {
-    /// Split a text object on the given pattern
+    /// Split a text object on the given pattern.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use stylish_stringlike::text::{Split, Splitable};
+    /// let path = String::from("/Some/complicated/path");
+    /// let mut split = Splitable::<&str>::split(&path, "/");
+    /// assert_eq!(
+    ///     Some(Split {
+    ///         delim: Some(String::from("/")),
+    ///         segment: None,
+    ///     }),
+    ///     split.next()
+    /// );
+    /// assert_eq!(
+    ///     Some(Split {
+    ///         delim: Some(String::from("/")),
+    ///         segment: Some(String::from("Some"))
+    ///     }),
+    ///     split.next()
+    /// );
+    /// assert_eq!(
+    ///     Some(Split {
+    ///         delim: Some(String::from("/")),
+    ///         segment: Some(String::from("complicated"))
+    ///     }),
+    ///     split.next()
+    /// );
+    /// assert_eq!(
+    ///     Some(Split {
+    ///         delim: None,
+    ///         segment: Some(String::from("path"))
+    ///     }),
+    ///     split.next()
+    /// );
+    /// ```
     fn split(&'a self, pattern: T) -> Box<dyn Iterator<Item = Split<Self, Self>> + 'a>
     where
         Self: Sized;
@@ -65,5 +101,22 @@ where
                     }
                 }),
         )
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_split_str() {
+        let path = String::from("Some/really/long/and/overly/complicated/path");
+        let mut split = Splitable::<&str>::split(&path, "/");
+        assert_eq!(
+            Some(Split {
+                delim: Some(String::from("/")),
+                segment: Some(String::from("Some"))
+            }),
+            split.next()
+        );
     }
 }
