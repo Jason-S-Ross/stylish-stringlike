@@ -1,5 +1,5 @@
 use std::ops::{Bound, Deref, RangeBounds};
-/// Provides function for slicing a text object on byte index (like [`String::get`])
+/// Provides function for slicing a text object on byte index (like [`str::get`])
 pub trait Sliceable<'a> {
     /// Slice an underlying text object by bytes.
     ///
