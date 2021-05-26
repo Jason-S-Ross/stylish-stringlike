@@ -2,18 +2,18 @@
 use ansi_term::{ANSIStrings, Style};
 use std::borrow::Borrow;
 /// Provides functionality to display strings with markup.
-pub trait Painter {
+pub trait Paintable {
     /// Applies markup to a given string.
     ///
     /// # Example
     ///
     /// ```
-    /// use stylish_stringlike::text::Painter;
+    /// use stylish_stringlike::text::Paintable;
     /// struct MyMarkup {
     ///     tag: String,
     /// }
     ///
-    /// impl Painter for MyMarkup {
+    /// impl Paintable for MyMarkup {
     ///     fn paint(&self, target: &str) -> String {
     ///         [
     ///             format!("<{}>", self.tag).as_str(),
@@ -31,20 +31,20 @@ pub trait Painter {
     /// assert_eq!(italic.paint("foo"), String::from("<i>foo</i>"));
     /// ```
     fn paint(&self, target: &str) -> String;
-    /// Applies markup to a given iterator of ([`Painter`], [`str`]) objects.
-    /// Provide an implementation for this if multiple adjacent [`Painter`]s
+    /// Applies markup to a given iterator of ([`Paintable`], [`str`]) objects.
+    /// Provide an implementation for this if multiple adjacent [`Paintable`]s
     /// can be joined together.
     ///
     /// # Example
     /// ```
     /// use std::borrow::Borrow;
-    /// use stylish_stringlike::text::Painter;
+    /// use stylish_stringlike::text::Paintable;
     /// #[derive(Clone, Eq, PartialEq)]
     /// struct MyMarkup {
     ///     tag: String,
     /// }
     ///
-    /// impl Painter for MyMarkup {
+    /// impl Paintable for MyMarkup {
     ///     fn paint(&self, target: &str) -> String {
     ///         [
     ///             format!("<{}>", self.tag).as_str(),
@@ -115,7 +115,7 @@ pub trait Painter {
 }
 
 #[cfg(test)]
-impl Painter for Style {
+impl Paintable for Style {
     fn paint(&self, target: &str) -> String {
         Style::paint(*self, target).to_string()
     }

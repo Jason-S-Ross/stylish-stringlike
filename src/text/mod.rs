@@ -4,7 +4,7 @@
 
 mod expandable;
 mod joinable;
-mod painter;
+mod paintable;
 mod pushable;
 mod replaceable;
 mod sliceable;
@@ -14,7 +14,7 @@ mod width;
 mod width_sliceable;
 pub use expandable::Expandable;
 pub use joinable::Joinable;
-pub use painter::*;
+pub use paintable::Paintable;
 pub use pushable::Pushable;
 pub use replaceable::*;
 pub use sliceable::*;

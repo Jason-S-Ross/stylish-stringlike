@@ -1,5 +1,6 @@
 use super::{
-    slice_string, BoundedWidth, Expandable, Joinable, Painter, Pushable, RawText, Sliceable, Spans,
+    slice_string, BoundedWidth, Expandable, Joinable, Paintable, Pushable, RawText, Sliceable,
+    Spans,
 };
 #[cfg(test)]
 use ansi_term::{ANSIString, Style};
@@ -32,7 +33,7 @@ impl<'a, T: Clone> Span<'a, T> {
         }
     }
 }
-impl<'a, T: Painter + Clone> fmt::Display for Span<'a, T> {
+impl<'a, T: Paintable + Clone> fmt::Display for Span<'a, T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         self.style.paint(self.content.as_ref()).fmt(fmt)
     }

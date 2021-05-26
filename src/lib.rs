@@ -17,7 +17,7 @@
 //!
 //! ```rust
 //! use std::borrow::Cow;
-//! use stylish_stringlike::text::{Joinable, Painter, Replaceable, Sliceable, Span, Spans};
+//! use stylish_stringlike::text::{Joinable, Paintable, Replaceable, Sliceable, Span, Spans};
 //! use stylish_stringlike::widget::{HBox, TextWidget, TruncationStyle};
 //!
 //! #[derive(Clone, Default, PartialEq)]
@@ -25,7 +25,7 @@
 //!     tag: String,
 //! }
 //!
-//! impl Painter for MyMarkup {
+//! impl Paintable for MyMarkup {
 //!     fn paint(&self, target: &str) -> String {
 //!         [
 //!             format!("<{}>", self.tag).as_str(),

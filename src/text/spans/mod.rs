@@ -1,7 +1,7 @@
 mod search_tree;
 mod span;
 use super::{
-    slice_string, BoundedWidth, Expandable, Joinable, Painter, Pushable, RawText, Replaceable,
+    slice_string, BoundedWidth, Expandable, Joinable, Paintable, Pushable, RawText, Replaceable,
     Sliceable,
 };
 
@@ -282,7 +282,7 @@ where
     }
 }
 
-impl<'a, T: Painter + Clone + Default> fmt::Display for Spans<T> {
+impl<'a, T: Paintable + Clone + Default> fmt::Display for Spans<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         T::paint_many(self.spans().map(|span| (span.style().clone(), span.raw()))).fmt(fmt)
     }
