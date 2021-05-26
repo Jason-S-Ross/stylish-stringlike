@@ -1,4 +1,4 @@
-//! This provides the primary text object, [`spans`], which is a sequence
+//! This provides the primary text object, [`Spans`], which is a sequence
 //! of styled spans, as well as traits providing support for string-like
 //! methods on structs.
 
