@@ -1,10 +1,30 @@
 use super::{Expandable, Pushable, RawText, Sliceable};
 use regex::Regex;
-/// Replacing text in text-like objects
+/// Replacing text in text-like objects.
+///
+/// This is implemented for [`String`] by default.
 pub trait Replaceable<'a, T> {
     /// Perform literal string replacement.
+    ///
+    /// # Example
+    /// ```rust
+    /// use stylish_stringlike::text::*;
+    /// let foo = String::from("foo");
+    /// let bar = Replaceable::<&String>::replace(&foo, "foo", &String::from("bar"));
+    /// assert_eq!(String::from("bar"), bar);
+    /// ```
     fn replace(&'a self, from: &str, replacer: T) -> Self;
     /// Perform regex string replacement.
+    ///
+    /// # Example
+    /// ```rust
+    /// use stylish_stringlike::text::*;
+    /// use regex::Regex;
+    /// let foooo = String::from("foooo");
+    /// let re = Regex::new("fo+").unwrap();
+    /// let bar = Replaceable::<&String>::replace_regex(&foooo, &re, &String::from("bar"));
+    /// assert_eq!(bar, String::from("bar"));
+    /// ```
     fn replace_regex(&'a self, searcher: &Regex, replacer: T) -> Self;
 }
 
@@ -16,13 +36,14 @@ where
         let mut result: T = Default::default();
         let mut last_end = 0;
         for (start, part) in self.raw_ref().match_indices(from) {
+            eprintln!("start: {}, part: {}", start, part);
             match self.slice(last_end..start) {
                 Some(slice) if !slice.raw_ref().is_empty() => {
                     result.push(&slice);
-                    result.push(replacer);
                 }
                 _ => {}
             }
+            result.push(replacer);
             last_end = start + part.len();
         }
         match self.slice(last_end..) {
@@ -54,5 +75,24 @@ where
             result.push(&spans);
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_string_replace() {
+        let foo = String::from("foo");
+        let bar = Replaceable::<&String>::replace(&foo, "foo", &String::from("bar"));
+        eprintln!("bar: {}", bar);
+        assert_eq!(bar, String::from("bar"));
+    }
+    #[test]
+    fn test_string_regex_replace() {
+        let foooo = String::from("foooo");
+        let re = Regex::new("fo+").unwrap();
+        let bar = Replaceable::<&String>::replace_regex(&foooo, &re, &String::from("bar"));
+        assert_eq!(bar, String::from("bar"));
     }
 }
