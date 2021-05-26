@@ -12,9 +12,8 @@ pub struct Split<T, U> {
 
 /// Text objects that can be split on a delimiter or pattern
 pub trait Splitable<'a, T> {
-    // TODO: Rename this split
     /// Split a text object on the given pattern
-    fn split_style(&'a self, pattern: T) -> Box<dyn Iterator<Item = Split<Self, Self>> + 'a>
+    fn split(&'a self, pattern: T) -> Box<dyn Iterator<Item = Split<Self, Self>> + 'a>
     where
         Self: Sized;
 }
@@ -24,7 +23,7 @@ where
     T: Sliceable<'a> + RawText,
 {
     #[allow(clippy::type_complexity)]
-    fn split_style(&'a self, pattern: &'a str) -> Box<dyn Iterator<Item = Split<Self, Self>> + 'a> {
+    fn split(&'a self, pattern: &'a str) -> Box<dyn Iterator<Item = Split<Self, Self>> + 'a> {
         Box::new(
             self.raw_ref()
                 .match_indices(pattern)

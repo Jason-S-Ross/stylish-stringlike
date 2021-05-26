@@ -113,7 +113,7 @@ mod test {
             Color::Yellow.paint("::"),
         ];
         let spans: Spans<_> = texts.iter().map(Span::<Style>::from).collect();
-        let split = spans.split_style("::").collect::<Vec<_>>();
+        let split = spans.split("::").collect::<Vec<_>>();
         let ellipsis_string = Color::Blue.paint("…");
         let ellipsis_span = make_spans(&Color::Blue.normal(), "…");
         let truncation = TruncationStyle::Inner(Some(ellipsis_span));

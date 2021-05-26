@@ -650,7 +650,7 @@ mod test {
             Color::Yellow.paint("::"),
         ];
         let spans = strings_to_spans(&texts);
-        let actual = spans.split_style("::").collect::<Vec<_>>();
+        let actual = spans.split("::").collect::<Vec<_>>();
         let expected = vec![
             Split {
                 segment: None,
@@ -681,7 +681,7 @@ mod test {
             Color::White.paint("Place"),
         ];
         let spans = strings_to_spans(&texts);
-        let actual = spans.split_style("::").collect::<Vec<_>>();
+        let actual = spans.split("::").collect::<Vec<_>>();
         let expected = vec![
             Split {
                 segment: Some(string_to_spans(&texts[0])),
