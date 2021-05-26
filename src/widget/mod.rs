@@ -1,3 +1,4 @@
+//! Provides some widgets for displaying text objects in the [`crate::text`] module.
 mod hbox;
 mod repeat;
 mod text_widget;
