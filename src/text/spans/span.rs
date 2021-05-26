@@ -1,6 +1,9 @@
-use super::{slice_string, BoundedWidth, Joinable, Painter, RawText, Sliceable, Spans};
+use super::{
+    slice_string, BoundedWidth, Expandable, Joinable, Painter, Pushable, RawText, Sliceable, Spans,
+};
 #[cfg(test)]
 use ansi_term::{ANSIString, Style};
+use regex::Captures;
 use std::borrow::Cow;
 use std::fmt;
 #[cfg(test)]
@@ -18,9 +21,6 @@ pub struct Span<'a, T: Clone> {
 impl<'a, T: Clone> Span<'a, T> {
     pub fn style(&self) -> &Cow<'a, T> {
         &self.style
-    }
-    pub fn content(&self) -> &Cow<'a, str> {
-        &self.content
     }
     pub fn new(style: Cow<'a, T>, content: Cow<'a, str>) -> Span<'a, T> {
         Span { style, content }
@@ -71,9 +71,14 @@ impl<'a, T: Clone + Default + PartialEq> Joinable<Span<'a, T>> for Span<'a, T> {
     type Output = Spans<T>;
     fn join(&self, other: &Span<T>) -> Self::Output {
         let mut res: Spans<T> = Default::default();
-        res.push_span(self);
-        res.push_span(other);
+        res.push(self);
+        res.push(other);
         res
+    }
+}
+impl<'a, T: Clone> Pushable<str> for Span<'a, T> {
+    fn push(&mut self, other: &str) {
+        self.content.to_mut().push_str(other);
     }
 }
 impl<'a, T: Clone> Sliceable<'a> for Span<'a, T> {
@@ -96,6 +101,15 @@ impl<'a, T: Clone> RawText for Span<'a, T> {
 impl<'a, T: Clone> BoundedWidth for Span<'a, T> {
     fn bounded_width(&self) -> usize {
         self.content.width()
+    }
+}
+impl<'a, T: Clone> Expandable for Span<'a, T> {
+    fn expand(&self, capture: &Captures) -> Span<'a, T> {
+        let new_content = self.raw().expand(capture);
+        Span {
+            style: self.style.clone(),
+            content: Cow::Owned(new_content),
+        }
     }
 }
 #[cfg(test)]

@@ -1,8 +1,11 @@
 mod search_tree;
 mod span;
-use super::{slice_string, BoundedWidth, Joinable, Painter, RawText, Replaceable, Sliceable};
+use super::{
+    slice_string, BoundedWidth, Expandable, Joinable, Painter, Pushable, RawText, Replaceable,
+    Sliceable,
+};
 
-use regex::{Regex, Replacer};
+use regex::{Captures, Regex, Replacer};
 use search_tree::SearchTree;
 pub use span::Span;
 use std::borrow::Borrow;
@@ -10,10 +13,9 @@ use std::borrow::Cow;
 use std::fmt;
 use std::iter::FromIterator;
 use std::iter::{once, repeat};
-use std::ops::{Add, AddAssign, RangeBounds};
+use std::ops::RangeBounds;
 use unicode_width::UnicodeWidthStr;
 
-// TODO: Get rid of Add, AddAssign, push, and push_span and use Joinable instead.
 // TODO: Can we use a blanket impl for Replaceable over Joinable, RawText, and Sliceable types,
 // instead of implementing it for this explicitly?
 /// A string with various styles applied to the span.
@@ -96,29 +98,49 @@ impl<T> Spans<T> {
                 }
             })
     }
-    /// Pushes another [`Spans`] onto this.
-    pub fn push(&mut self, other: &Self) -> &Self
-    where
-        T: PartialEq + Clone,
-    {
+    fn trim(&mut self) {
+        self.spans.trim(self.content.len().saturating_sub(1));
+    }
+}
+
+impl<T: Clone + PartialEq> Pushable<Spans<T>> for Spans<T> {
+    fn push(&mut self, other: &Spans<T>) {
         // copy_with_shift always succeeds because len is always positive so no
         // risk converting
         self.spans
             .copy_with_shift(&other.spans, .., self.content.len())
             .unwrap();
         self.content.push_str(&other.content);
-        self
+        self.trim();
     }
-    /// Pushes a [`Span`] onto this.
-    pub fn push_span(&mut self, other: &Span<'_, T>) -> &Self
-    where
-        T: PartialEq + Clone,
-    {
+}
+
+impl<'a, T: Clone + PartialEq> Pushable<Span<'a, T>> for Spans<T> {
+    fn push(&mut self, other: &Span<'a, T>) {
         self.spans
             .insert(self.content.len(), other.style().clone().into_owned());
-        self.content.push_str(&other.content());
+        self.content.push_str(other.raw_ref());
         self.spans.dedup();
-        self
+        self.trim();
+    }
+}
+
+impl<T> Pushable<str> for Spans<T> {
+    fn push(&mut self, other: &str) {
+        self.content.push_str(other);
+    }
+}
+
+impl<T: Default + Clone + PartialEq> Expandable for Spans<T> {
+    fn expand(&self, capture: &Captures) -> Self {
+        let mut result: Spans<T> = Default::default();
+        for span in self.spans() {
+            let mut dst = String::new();
+            capture.expand(span.raw_ref(), &mut dst);
+            let new_span = Span::<T>::borrowed(&span.style(), &dst);
+            result.push(&new_span);
+        }
+        result
     }
 }
 
@@ -141,8 +163,9 @@ impl<'a, T: Clone + PartialEq + Default> Replaceable<'a, &'a str> for Spans<T> {
             last_end = start + part.len();
         }
         if let Some(spans) = self.slice(last_end..) {
-            result += spans;
+            result.push(&spans);
         }
+        result.trim();
         result
     }
     fn replace_regex(&self, searcher: &Regex, replacer: &'a str) -> Self {
@@ -157,7 +180,7 @@ impl<'a, T: Clone + PartialEq + Default> Replaceable<'a, &'a str> for Spans<T> {
                 .get(0)
                 .expect("Captures are always supposed to have one match");
             if let Some(spans) = self.slice(last_end..mat.start()) {
-                result += spans;
+                result.push(&spans);
                 if let Some(mut r) = self.slice(mat.start()..mat.end()) {
                     let mut new = String::new();
                     String::from(replacer).replace_append(&capture, &mut new);
@@ -168,67 +191,9 @@ impl<'a, T: Clone + PartialEq + Default> Replaceable<'a, &'a str> for Spans<T> {
             }
         }
         if let Some(spans) = self.slice(last_end..) {
-            result += spans;
+            result.push(&spans);
         }
-        result
-    }
-}
-
-impl<'a, T: Clone + PartialEq + Default> Replaceable<'a, &'a Spans<T>> for Spans<T> {
-    fn replace(&'a self, from: &str, replacer: &'a Spans<T>) -> Self {
-        let mut result = Spans {
-            content: String::new(),
-            spans: SearchTree::new(),
-        };
-
-        let mut last_end = 0;
-        for (start, part) in self.content.match_indices(from) {
-            match self.slice(last_end..start) {
-                Some(spans) if !spans.content.is_empty() => {
-                    result.push(&spans);
-                    result.push(replacer);
-                }
-                _ => {}
-            }
-            last_end = start + part.len();
-        }
-        match self.slice(last_end..) {
-            Some(spans) if !spans.content.is_empty() => {
-                result.push(&spans);
-            }
-            _ => {}
-        }
-        result
-    }
-    // TODO: Check that this doesn't include empty spans
-    fn replace_regex(&'a self, searcher: &Regex, replacer: &'a Spans<T>) -> Self {
-        let mut last_end = 0;
-        let mut result = Spans {
-            content: String::new(),
-            spans: SearchTree::new(),
-        };
-        let captures = searcher.captures_iter(&self.content);
-        for capture in captures {
-            let mat = capture
-                .get(0)
-                .expect("Captures are always supposed to have one match");
-            if let Some(spans) = self.slice(last_end..mat.start()) {
-                result += spans;
-                if let Some(_original) = self.slice(mat.start()..mat.end()) {
-                    for span in replacer.spans() {
-                        let mut dst = String::new();
-                        capture.expand(span.content(), &mut dst);
-                        let new_span = Span::<T>::borrowed(&span.style(), &dst);
-                        result.push_span(&new_span);
-                    }
-                }
-                last_end = mat.end();
-            }
-        }
-        if let Some(spans) = self.slice(last_end..) {
-            result += spans;
-        }
-        result.spans.trim(result.content.len() - 1);
+        result.trim();
         result
     }
 }
@@ -287,7 +252,7 @@ where
     {
         let mut result: Spans<T> = Default::default();
         for span in iter {
-            result.push_span(&span);
+            result.push(&span);
         }
         result.spans.dedup();
         result
@@ -319,45 +284,7 @@ where
 
 impl<'a, T: Painter + Clone + Default> fmt::Display for Spans<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        T::paint_many(
-            self.spans()
-                .map(|span| (span.style().clone(), span.content().clone())),
-        )
-        .fmt(fmt)
-    }
-}
-
-impl<T> Add for Spans<T>
-where
-    T: Clone + Default + PartialEq,
-{
-    type Output = Spans<T>;
-    fn add(self, other: Self) -> Self::Output {
-        vec![self, other].iter().collect()
-    }
-}
-
-impl<T> Add for &Spans<T>
-where
-    T: Clone + PartialEq + Default,
-{
-    type Output = Spans<T>;
-    fn add(self, other: Self) -> Self::Output {
-        vec![self, other].iter().cloned().collect()
-    }
-}
-
-impl<T> AddAssign for Spans<T>
-where
-    T: Clone + PartialEq,
-{
-    fn add_assign(&mut self, rhs: Self) {
-        // copy_with_shift always succeeds because len is always positive so no
-        // risk converting
-        self.spans
-            .copy_with_shift(&rhs.spans, .., self.content.len())
-            .unwrap();
-        self.content.push_str(&rhs.content);
+        T::paint_many(self.spans().map(|span| (span.style().clone(), span.raw()))).fmt(fmt)
     }
 }
 
@@ -373,6 +300,7 @@ impl<T: PartialEq + Default + Clone> Joinable<Spans<T>> for Spans<T> {
         let mut result: Spans<T> = Default::default();
         result.push(self);
         result.push(other);
+        result.trim();
         result
     }
 }
@@ -382,7 +310,7 @@ impl<T: PartialEq + Default + Clone> Joinable<Span<'_, T>> for Spans<T> {
     fn join(&self, other: &Span<'_, T>) -> Self::Output {
         let mut result: Spans<T> = Default::default();
         result.push(self);
-        result.push_span(other);
+        result.push(other);
         result
     }
 }
@@ -398,7 +326,7 @@ mod test {
     fn string_to_spans(string: &ANSIString<'_>) -> Spans<Style> {
         let span = Span::<Style>::from(string);
         let mut spans: Spans<Style> = Default::default();
-        spans.push_span(&span);
+        spans.push(&span);
         spans
     }
     #[test]

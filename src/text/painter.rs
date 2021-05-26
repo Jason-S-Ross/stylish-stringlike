@@ -15,7 +15,10 @@ pub trait Painter {
     /// }
     /// impl Painter for MyMarkup {
     ///     fn paint(&self, target: &str) -> String {
-    ///         [&self.opening_tag, target, &self.closing_tag].iter().map(|x| *x).collect()
+    ///         [&self.opening_tag, target, &self.closing_tag]
+    ///             .iter()
+    ///             .map(|x| *x)
+    ///             .collect()
     ///     }
     /// }
     /// let italic = MyMarkup {
@@ -31,15 +34,18 @@ pub trait Painter {
     ///
     /// # Example
     /// ```
-    /// use stylish_stringlike::text::Painter;
     /// use std::borrow::Borrow;
+    /// use stylish_stringlike::text::Painter;
     /// struct MyMarkup {
     ///     opening_tag: String,
     ///     closing_tag: String,
     /// }
     /// impl Painter for MyMarkup {
     ///     fn paint(&self, target: &str) -> String {
-    ///         [&self.opening_tag, target, &self.closing_tag].iter().map(|x| *x).collect()
+    ///         [&self.opening_tag, target, &self.closing_tag]
+    ///             .iter()
+    ///             .map(|x| *x)
+    ///             .collect()
     ///     }
     ///     fn paint_many<'a, T, U, V>(groups: T) -> String
     ///     where
@@ -66,7 +72,6 @@ pub trait Painter {
     ///         }
     ///         result
     ///     }
-    ///     
     /// }
     /// let italic = MyMarkup {
     ///     opening_tag: String::from("<i>"),
@@ -76,12 +81,11 @@ pub trait Painter {
     ///     opening_tag: String::from("<b>"),
     ///     closing_tag: String::from("</b>"),
     /// };
-    /// let foobarbaz = vec![
-    ///     (&italic, "foo"),
-    ///     (&italic, "bar"),
-    ///     (&bold, "baz"),
-    /// ];
-    /// assert_eq!(MyMarkup::paint_many(foobarbaz), String::from("<i>foobar</i><b>baz</b>"));
+    /// let foobarbaz = vec![(&italic, "foo"), (&italic, "bar"), (&bold, "baz")];
+    /// assert_eq!(
+    ///     MyMarkup::paint_many(foobarbaz),
+    ///     String::from("<i>foobar</i><b>baz</b>")
+    /// );
     /// ```
     fn paint_many<'a, T, U, V>(groups: T) -> String
     where

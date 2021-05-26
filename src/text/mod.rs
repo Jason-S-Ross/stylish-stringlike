@@ -2,16 +2,20 @@
 //! of styled spans, as well as traits providing support for string-like
 //! methods on structs.
 
+mod expandable;
 mod joinable;
 mod painter;
+mod pushable;
 mod replaceable;
 mod sliceable;
 mod spans;
 mod splitable;
 mod width;
 mod width_sliceable;
+pub use expandable::Expandable;
 pub use joinable::Joinable;
 pub use painter::*;
+pub use pushable::Pushable;
 pub use replaceable::*;
 pub use sliceable::*;
 pub use spans::*;

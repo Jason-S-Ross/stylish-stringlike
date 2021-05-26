@@ -10,7 +10,7 @@ pub use truncatable::*;
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::text::{Span, Spans, WidthSliceable};
+    use crate::text::{Pushable, Span, Spans, WidthSliceable};
     use crate::widget::truncatable::TruncationStyle;
     use ansi_term::{ANSIStrings, Color, Style};
     use std::borrow::Cow;
@@ -18,7 +18,7 @@ mod test {
         let ansistring = style.paint(text);
         let span: Span<Style> = ansistring.into();
         let mut spans: Spans<Style> = Default::default();
-        spans.push_span(&span);
+        spans.push(&span);
         spans
     }
     #[test]
@@ -43,9 +43,11 @@ mod test {
         let style1 = Color::Green.normal();
         let content0 = "0123456";
         let content1 = "789";
-        let text = make_spans(&style0, content0)
-            .push(&make_spans(&style1, content1))
-            .clone();
+        let text = {
+            let mut text = make_spans(&style0, content0);
+            text.push(&make_spans(&style1, content1));
+            text
+        };
         let ellipsis_style = Color::Blue.normal();
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
@@ -63,9 +65,11 @@ mod test {
         let style1 = Color::Green.normal();
         let content0 = "0123456";
         let content1 = "789";
-        let text = make_spans(&style0, content0)
-            .push(&make_spans(&style1, content1))
-            .clone();
+        let text = {
+            let mut text = make_spans(&style0, content0);
+            text.push(&make_spans(&style1, content1));
+            text
+        };
         let ellipsis_style = Color::Blue.normal();
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
@@ -173,9 +177,11 @@ mod test {
         let style1 = Color::Green.normal();
         let content0 = "0123456";
         let content1 = "789";
-        let text = make_spans(&style0, content0)
-            .push(&make_spans(&style1, content1))
-            .clone();
+        let text = {
+            let mut text = make_spans(&style0, content0);
+            text.push(&make_spans(&style1, content1));
+            text
+        };
         let ellipsis_style = Color::Blue.normal();
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
@@ -197,9 +203,11 @@ mod test {
         let style1 = Color::Green.normal();
         let content0 = "0123456";
         let content1 = "789";
-        let text = make_spans(&style0, content0)
-            .push(&make_spans(&style1, content1))
-            .clone();
+        let text = {
+            let mut text = make_spans(&style0, content0);
+            text.push(&make_spans(&style1, content1));
+            text
+        };
         let ellipsis_style = Color::Blue.normal();
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
@@ -309,9 +317,11 @@ mod test {
         let style1 = Color::Green.normal();
         let content0 = "01234";
         let content1 = "56789";
-        let text = make_spans(&style0, content0)
-            .push(&make_spans(&style1, content1))
-            .clone();
+        let text = {
+            let mut text = make_spans(&style0, content0);
+            text.push(&make_spans(&style1, content1));
+            text
+        };
         let ellipsis_style = Color::Blue.normal();
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
@@ -334,9 +344,11 @@ mod test {
         let style1 = Color::Green.normal();
         let content0 = "0123456";
         let content1 = "789";
-        let text = make_spans(&style0, content0)
-            .push(&make_spans(&style1, content1))
-            .clone();
+        let text = {
+            let mut text = make_spans(&style0, content0);
+            text.push(&make_spans(&style1, content1));
+            text
+        };
         let ellipsis_style = Color::Blue.normal();
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);

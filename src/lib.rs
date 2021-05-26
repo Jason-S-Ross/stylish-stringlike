@@ -15,22 +15,26 @@
 //!
 //! ## Usage
 //!
-//! ```
-//! use stylish_stringlike::text::{Span, Spans, Painter, Joinable, Replaceable, Sliceable};
-//! use stylish_stringlike::widget::{TruncationStyle, HBox, TextWidget};
+//! ```rust
 //! use std::borrow::Cow;
+//! use stylish_stringlike::text::{Joinable, Painter, Replaceable, Sliceable, Span, Spans};
+//! use stylish_stringlike::widget::{HBox, TextWidget, TruncationStyle};
 //!
 //! #[derive(Clone, Default, PartialEq)]
 //! struct MyMarkup {
 //!     tag: String,
 //! }
+//!
 //! impl Painter for MyMarkup {
 //!     fn paint(&self, target: &str) -> String {
 //!         [
 //!             format!("<{}>", self.tag).as_str(),
 //!             target,
-//!             format!("</{}>", self.tag).as_str()
-//!         ].iter().map(|x| *x).collect()
+//!             format!("</{}>", self.tag).as_str(),
+//!         ]
+//!         .iter()
+//!         .map(|x| *x)
+//!         .collect()
 //!     }
 //! }
 //! let italic = MyMarkup {
@@ -42,6 +46,7 @@
 //! let underline = MyMarkup {
 //!     tag: String::from("u"),
 //! };
+//!
 //! let foo: Span<MyMarkup> = Span::new(Cow::Borrowed(&italic), Cow::Owned(String::from("foo")));
 //! let bar: Span<MyMarkup> = Span::new(Cow::Borrowed(&bold), Cow::Owned(String::from("bar")));
 //! let foobar = foo.join(&bar);
@@ -49,7 +54,10 @@
 //! let foobaz = foobar.replace("bar", "baz");
 //! assert_eq!(format!("{}", foobaz), "<i>foo</i><b>baz</b>");
 //! let mut buz: Spans<MyMarkup> = Default::default();
-//! buz = buz.join(&Span::new(Cow::Borrowed(&underline), Cow::Owned(String::from("buz"))));
+//! buz = buz.join(&Span::new(
+//!     Cow::Borrowed(&underline),
+//!     Cow::Owned(String::from("buz")),
+//! ));
 //! let foobuz = foobar.replace("bar", &buz);
 //! assert_eq!(format!("{}", foobuz), "<i>foo</i><u>buz</u>");
 //! let foob = foobar.slice(..4).unwrap();
@@ -60,22 +68,22 @@
 //!     spans = spans.join(&span);
 //!     spans
 //! }
-//! let truncation = TruncationStyle::Inner(Some(Span::new(Cow::Borrowed(&underline), Cow::Owned(String::from("…")))));
+//! let truncation = TruncationStyle::Inner(Some(Span::new(
+//!     Cow::Borrowed(&underline),
+//!     Cow::Owned(String::from("…")),
+//! )));
 //! let first_spans = make_spans(&italic, "abcdefg");
 //! let second_spans = make_spans(&bold, "12345678");
-//! let first_segment = TextWidget::new(
-//!     &first_spans,
-//!     &truncation,
-//! );
-//!     
-//! let second_segment = TextWidget::new(
-//!     &second_spans,
-//!     &truncation,
-//! );
+//! let first_segment = TextWidget::new(&first_spans, &truncation);
+//!
+//! let second_segment = TextWidget::new(&second_spans, &truncation);
 //! let mut hbox: HBox = Default::default();
 //! hbox.push(&first_segment);
 //! hbox.push(&second_segment);
-//! assert_eq!(format!("{}", hbox.truncate(10)), "<i>ab</i><u>…</u><i>fg</i><b>12</b><u>…</u><b>78</b>");
+//! assert_eq!(
+//!     format!("{}", hbox.truncate(10)),
+//!     "<i>ab</i><u>…</u><i>fg</i><b>12</b><u>…</u><b>78</b>"
+//! );
 //! ```
 pub mod text;
 pub mod widget;
@@ -90,7 +98,7 @@ mod test {
         let ansistring: ANSIString = Style::paint(*style, text);
         let span: Span<Style> = ansistring.into();
         let mut spans: Spans<Style> = Default::default();
-        spans.push_span(&span);
+        spans.push(&span);
         spans
     }
     #[test]
