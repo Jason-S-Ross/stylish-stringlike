@@ -10,20 +10,23 @@ pub trait Painter {
     /// ```
     /// use stylish_stringlike::text::Painter;
     /// struct MyMarkup {
-    ///     opening_tag: String,
-    ///     closing_tag: String,
+    ///     tag: String,
     /// }
+    ///
     /// impl Painter for MyMarkup {
     ///     fn paint(&self, target: &str) -> String {
-    ///         [&self.opening_tag, target, &self.closing_tag]
-    ///             .iter()
-    ///             .map(|x| *x)
-    ///             .collect()
+    ///         [
+    ///             format!("<{}>", self.tag).as_str(),
+    ///             target,
+    ///             format!("</{}>", self.tag).as_str(),
+    ///         ]
+    ///         .iter()
+    ///         .map(|x| *x)
+    ///         .collect()
     ///     }
     /// }
     /// let italic = MyMarkup {
-    ///     opening_tag: String::from("<i>"),
-    ///     closing_tag: String::from("</i>"),
+    ///     tag: String::from("i"),
     /// };
     /// assert_eq!(italic.paint("foo"), String::from("<i>foo</i>"));
     /// ```
@@ -36,16 +39,21 @@ pub trait Painter {
     /// ```
     /// use std::borrow::Borrow;
     /// use stylish_stringlike::text::Painter;
+    /// #[derive(Clone, Eq, PartialEq)]
     /// struct MyMarkup {
-    ///     opening_tag: String,
-    ///     closing_tag: String,
+    ///     tag: String,
     /// }
+    ///
     /// impl Painter for MyMarkup {
     ///     fn paint(&self, target: &str) -> String {
-    ///         [&self.opening_tag, target, &self.closing_tag]
-    ///             .iter()
-    ///             .map(|x| *x)
-    ///             .collect()
+    ///         [
+    ///             format!("<{}>", self.tag).as_str(),
+    ///             target,
+    ///             format!("</{}>", self.tag).as_str(),
+    ///         ]
+    ///         .iter()
+    ///         .map(|x| *x)
+    ///         .collect()
     ///     }
     ///     fn paint_many<'a, T, U, V>(groups: T) -> String
     ///     where
@@ -54,32 +62,37 @@ pub trait Painter {
     ///         V: Borrow<str> + 'a,
     ///     {
     ///         let mut result = String::new();
-    ///         let mut previous_open = None;
-    ///         let mut previous_close: Option<String> = None;
-    ///         for (paintable, s) in groups {
-    ///             if Some(paintable.borrow().opening_tag.to_string()) != previous_open {
-    ///                 if let Some(s) = previous_close {
-    ///                     result.push_str(s.as_str());
+    ///         let mut previous_span = String::new();
+    ///         let mut previous_tag: Option<MyMarkup> = None;
+    ///         for (painter, s) in groups {
+    ///             match previous_tag {
+    ///                 Some(ref p) if painter.borrow() != p => {
+    ///                     result += &p.paint(&previous_span);
+    ///                     previous_span = String::from(s.borrow());
+    ///                     previous_tag = Some(painter.borrow().clone());
     ///                 }
-    ///                 result.push_str(&paintable.borrow().opening_tag);
-    ///                 previous_open = Some(paintable.borrow().opening_tag.to_string());
-    ///                 previous_close = Some(paintable.borrow().closing_tag.to_string());
+    ///                 Some(ref p) => {
+    ///                     previous_span.push_str(s.borrow());
+    ///                 },
+    ///                 None => {
+    ///                     previous_span.push_str(s.borrow());
+    ///                     previous_tag = Some(painter.borrow().clone());
+    ///                 }
     ///             }
-    ///             result.push_str(s.borrow());
     ///         }
-    ///         if let Some(s) = previous_close {
-    ///             result.push_str(s.as_str())
+    ///         if let Some(p) = previous_tag {
+    ///             if !previous_span.is_empty() {
+    ///                 result += &p.paint(&previous_span);
+    ///             }
     ///         }
     ///         result
     ///     }
     /// }
     /// let italic = MyMarkup {
-    ///     opening_tag: String::from("<i>"),
-    ///     closing_tag: String::from("</i>"),
+    ///     tag: String::from("i"),
     /// };
     /// let bold = MyMarkup {
-    ///     opening_tag: String::from("<b>"),
-    ///     closing_tag: String::from("</b>"),
+    ///     tag: String::from("b"),
     /// };
     /// let foobarbaz = vec![(&italic, "foo"), (&italic, "bar"), (&bold, "baz")];
     /// assert_eq!(
