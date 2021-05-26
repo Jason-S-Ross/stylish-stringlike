@@ -183,17 +183,24 @@ impl<'a, T: Clone + PartialEq + Default> Replaceable<'a, &'a Spans<T>> for Spans
 
         let mut last_end = 0;
         for (start, part) in self.content.match_indices(from) {
-            if let Some(spans) = self.slice(last_end..start) {
-                result.push(&spans);
-                result.push(replacer);
+            match self.slice(last_end..start) {
+                Some(spans) if !spans.content.is_empty() => {
+                    result.push(&spans);
+                    result.push(replacer);
+                }
+                _ => {}
             }
             last_end = start + part.len();
         }
-        if let Some(spans) = self.slice(last_end..) {
-            result += spans;
+        match self.slice(last_end..) {
+            Some(spans) if !spans.content.is_empty() => {
+                result.push(&spans);
+            }
+            _ => {}
         }
         result
     }
+    // TODO: Check that this doesn't include empty spans
     fn replace_regex(&'a self, searcher: &Regex, replacer: &'a Spans<T>) -> Self {
         let mut last_end = 0;
         let mut result = Spans {
