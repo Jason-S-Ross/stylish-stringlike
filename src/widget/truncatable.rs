@@ -39,13 +39,6 @@ where
         }
         use TruncationStyle::*;
         let mut result: T::Output = Default::default();
-        match self {
-            Left(sym) | Right(sym) | Inner(sym) if sym.bounded_width() >= width => {
-                result.push(&sym.slice_width(..width));
-                return Some(result);
-            }
-            _ => {}
-        }
         if let Width::Bounded(w) = target.width() {
             if width >= w {
                 result.push(&target.slice_width(..));
@@ -137,6 +130,21 @@ mod test {
         let truncator: TruncationStyle<Option<Spans<Tag>>> = TruncationStyle::Left(None);
         let actual = format!("{}", truncator.truncate(&spans, 9).unwrap());
         let expected = String::from("<2>01234</2><3>5678</3>");
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn truncate_one() {
+        let fmt_1 = Tag::new("<1>", "</1>");
+        let fmt_2 = Tag::new("<2>", "</2>");
+        let mut spans: Spans<Tag> = Default::default();
+        spans.push(&Span::new(Cow::Borrowed(&fmt_2), Cow::Borrowed("0")));
+        let truncator = {
+            let mut ellipsis = Spans::<Tag>::default();
+            ellipsis.push(&Span::new(Cow::Borrowed(&fmt_1), Cow::Borrowed("…")));
+            TruncationStyle::Left(ellipsis)
+        };
+        let actual = format!("{}", truncator.truncate(&spans, 1).unwrap());
+        let expected = String::from("<2>0</2>");
         assert_eq!(expected, actual);
     }
 }

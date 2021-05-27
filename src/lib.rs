@@ -129,4 +129,38 @@ mod test {
         );
         assert_eq!(expected, actual);
     }
+    #[test]
+    fn split_path_2() {
+        let path = Color::Blue.paint("some//path//with//segments");
+        let span: Span<Style> = path.clone().into();
+        let spans = {
+            let mut spans: Spans<Style> = Default::default();
+            spans.push(&span);
+            spans
+        };
+        let split = spans.split("//").collect::<Vec<_>>();
+        let truncation = TruncationStyle::Inner(Some(make_spans(&Color::Blue.normal(), "……")));
+        let widget_container = split
+            .iter()
+            .map(|Split { segment, delim }| {
+                let mut res = vec![];
+                if let Some(segment) = segment {
+                    res.push(segment);
+                }
+                if let Some(delim) = delim {
+                    res.push(delim);
+                }
+                res
+            })
+            .flatten()
+            .map(|s| TextWidget::new(s, &truncation))
+            .collect::<Vec<_>>();
+        let mut hbox: HBox<Spans<Style>> = Default::default();
+        for widget in &widget_container {
+            hbox.push(widget);
+        }
+        let expected = format!("{}", path);
+        let actual = format!("{}", hbox.truncate(50));
+        assert_eq!(expected, actual);
+    }
 }
