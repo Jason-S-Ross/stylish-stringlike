@@ -21,11 +21,20 @@ use unicode_width::UnicodeWidthStr;
 /// A string with various styles applied to the span.
 /// Styles do not not cascade. Only the most recent style
 /// applies to the current character.
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Debug)]
 pub struct Spans<T> {
     content: String,
     /// Byte-indexed map of spans
     spans: SearchTree<T>,
+}
+
+impl<T> Default for Spans<T> {
+    fn default() -> Self {
+        Self {
+            content: String::new(),
+            spans: Default::default(),
+        }
+    }
 }
 
 impl<T: PartialEq> Eq for Spans<T> {}
@@ -144,7 +153,7 @@ impl<T: Default + Clone + PartialEq> Expandable for Spans<T> {
     }
 }
 
-impl<'a, T: Clone + PartialEq + Default> Replaceable<'a, &'a str> for Spans<T> {
+impl<'a, T: Clone + PartialEq> Replaceable<'a, &'a str> for Spans<T> {
     fn replace(&self, from: &str, replacer: &'a str) -> Self {
         let mut result = Spans {
             content: String::new(),
@@ -226,7 +235,7 @@ impl<'a, T: Clone> Sliceable<'a> for Spans<T> {
 
 impl<'a, T, U> FromIterator<U> for Spans<T>
 where
-    T: Clone + PartialEq + 'a + Default,
+    T: Clone + PartialEq + 'a,
     U: Borrow<Spans<T>> + 'a,
 {
     fn from_iter<I>(iter: I) -> Spans<T>
@@ -244,7 +253,7 @@ where
 
 impl<'a, T> FromIterator<Span<'a, T>> for Spans<T>
 where
-    T: Clone + PartialEq + Default + 'a,
+    T: Clone + PartialEq + 'a,
 {
     fn from_iter<I>(iter: I) -> Spans<T>
     where
@@ -294,7 +303,7 @@ impl<T> BoundedWidth for Spans<T> {
     }
 }
 
-impl<T: PartialEq + Default + Clone> Joinable<Spans<T>> for Spans<T> {
+impl<T: PartialEq + Clone> Joinable<Spans<T>> for Spans<T> {
     type Output = Spans<T>;
     fn join(&self, other: &Spans<T>) -> Self::Output {
         let mut result: Spans<T> = Default::default();
@@ -305,7 +314,7 @@ impl<T: PartialEq + Default + Clone> Joinable<Spans<T>> for Spans<T> {
     }
 }
 
-impl<T: PartialEq + Default + Clone> Joinable<Span<'_, T>> for Spans<T> {
+impl<T: PartialEq + Clone> Joinable<Span<'_, T>> for Spans<T> {
     type Output = Spans<T>;
     fn join(&self, other: &Span<'_, T>) -> Self::Output {
         let mut result: Spans<T> = Default::default();

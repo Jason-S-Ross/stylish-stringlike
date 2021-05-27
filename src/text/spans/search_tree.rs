@@ -10,9 +10,17 @@ use std::error::Error;
 use std::fmt;
 use std::ops::{Add, Bound, RangeBounds};
 /// Data structure to quickly look up the nearest value smaller than a given value.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SearchTree<V> {
     tree: BTreeMap<usize, V>,
+}
+
+impl<V> Default for SearchTree<V> {
+    fn default() -> Self {
+        Self {
+            tree: BTreeMap::<usize, V>::new(),
+        }
+    }
 }
 
 impl<V> SearchTree<V> {
