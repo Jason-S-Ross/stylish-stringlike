@@ -10,6 +10,7 @@ mod replaceable;
 mod sliceable;
 mod spans;
 mod splitable;
+mod tag;
 mod width;
 mod width_sliceable;
 pub use expandable::Expandable;
@@ -20,6 +21,7 @@ pub use replaceable::*;
 pub use sliceable::*;
 pub use spans::*;
 pub use splitable::*;
+pub use tag::*;
 pub use width::*;
 pub use width_sliceable::*;
 

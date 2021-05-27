@@ -73,7 +73,7 @@ pub trait Paintable {
     ///                 }
     ///                 Some(ref p) => {
     ///                     previous_span.push_str(s.borrow());
-    ///                 },
+    ///                 }
     ///                 None => {
     ///                     previous_span.push_str(s.borrow());
     ///                     previous_tag = Some(painter.borrow().clone());

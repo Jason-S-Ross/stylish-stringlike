@@ -1,6 +1,6 @@
 use super::{
-    slice_string, BoundedWidth, Expandable, Joinable, Paintable, Pushable, RawText, Sliceable,
-    Spans,
+    slice_string, BoundedWidth, Expandable, HasWidth, Joinable, Paintable, Pushable, RawText,
+    Sliceable, Spans, Width,
 };
 #[cfg(test)]
 use ansi_term::{ANSIString, Style};
@@ -102,6 +102,11 @@ impl<'a, T: Clone> RawText for Span<'a, T> {
 impl<'a, T: Clone> BoundedWidth for Span<'a, T> {
     fn bounded_width(&self) -> usize {
         self.content.width()
+    }
+}
+impl<'a, T: Clone> HasWidth for Span<'a, T> {
+    fn width(&self) -> Width {
+        Width::Bounded(self.bounded_width())
     }
 }
 impl<'a, T: Clone> Expandable for Span<'a, T> {

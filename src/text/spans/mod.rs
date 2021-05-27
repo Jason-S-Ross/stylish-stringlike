@@ -1,8 +1,8 @@
 mod search_tree;
 mod span;
 use super::{
-    slice_string, BoundedWidth, Expandable, Joinable, Paintable, Pushable, RawText, Replaceable,
-    Sliceable,
+    slice_string, BoundedWidth, Expandable, HasWidth, Joinable, Paintable, Pushable, RawText,
+    Replaceable, Sliceable, Width,
 };
 
 use regex::{Captures, Regex, Replacer};
@@ -14,10 +14,6 @@ use std::fmt;
 use std::iter::FromIterator;
 use std::iter::{once, repeat};
 use std::ops::RangeBounds;
-use unicode_width::UnicodeWidthStr;
-
-// TODO: Can we use a blanket impl for Replaceable over Joinable, RawText, and Sliceable types,
-// instead of implementing it for this explicitly?
 /// A string with various styles applied to the span.
 /// Styles do not not cascade. Only the most recent style
 /// applies to the current character.
@@ -153,6 +149,8 @@ impl<T: Default + Clone + PartialEq> Expandable for Spans<T> {
     }
 }
 
+// Did a specific impl for this because I haven't figured out how to get
+// a blanket impl over string that works properly
 impl<'a, T: Clone + PartialEq> Replaceable<'a, &'a str> for Spans<T> {
     fn replace(&self, from: &str, replacer: &'a str) -> Self {
         let mut result = Spans {
@@ -299,7 +297,13 @@ impl<'a, T: Paintable + Clone + Default> fmt::Display for Spans<T> {
 
 impl<T> BoundedWidth for Spans<T> {
     fn bounded_width(&self) -> usize {
-        self.content.width()
+        self.content.bounded_width()
+    }
+}
+
+impl<T> HasWidth for Spans<T> {
+    fn width(&self) -> Width {
+        Width::Bounded(self.bounded_width())
     }
 }
 

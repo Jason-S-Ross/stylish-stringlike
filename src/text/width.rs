@@ -48,12 +48,15 @@ pub trait HasWidth {
     fn width(&self) -> Width;
 }
 
-impl<T> HasWidth for T
+impl<T> HasWidth for Option<T>
 where
-    T: BoundedWidth,
+    T: HasWidth,
 {
     fn width(&self) -> Width {
-        Width::Bounded(self.bounded_width())
+        match self {
+            Some(t) => t.width(),
+            None => Width::Bounded(0),
+        }
     }
 }
 
@@ -78,9 +81,33 @@ impl BoundedWidth for String {
     }
 }
 
+impl HasWidth for String {
+    fn width(&self) -> Width {
+        Width::Bounded(self.bounded_width())
+    }
+}
+
 impl BoundedWidth for &str {
     fn bounded_width(&self) -> usize {
         unicode_width::UnicodeWidthStr::width(*self)
+    }
+}
+
+impl HasWidth for &str {
+    fn width(&self) -> Width {
+        Width::Bounded(self.bounded_width())
+    }
+}
+
+impl<T> BoundedWidth for Option<T>
+where
+    T: BoundedWidth,
+{
+    fn bounded_width(&self) -> usize {
+        match self {
+            Some(t) => t.bounded_width(),
+            None => 0,
+        }
     }
 }
 

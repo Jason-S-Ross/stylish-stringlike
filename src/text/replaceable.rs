@@ -18,8 +18,8 @@ pub trait Replaceable<'a, T> {
     ///
     /// # Example
     /// ```rust
-    /// use stylish_stringlike::text::*;
     /// use regex::Regex;
+    /// use stylish_stringlike::text::*;
     /// let foooo = String::from("foooo");
     /// let re = Regex::new("fo+").unwrap();
     /// let bar = Replaceable::<&String>::replace_regex(&foooo, &re, &String::from("bar"));

@@ -75,3 +75,19 @@ where
         }
     }
 }
+
+impl<'a, T> WidthSliceable<'a> for Option<T>
+where
+    T: WidthSliceable<'a>,
+{
+    type Output = T::Output;
+    fn slice_width<R>(&'a self, range: R) -> Option<Self::Output>
+    where
+        R: RangeBounds<usize>,
+    {
+        match self {
+            Some(t) => t.slice_width(range),
+            None => None,
+        }
+    }
+}
