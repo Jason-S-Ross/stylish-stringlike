@@ -5,10 +5,14 @@ authors = ["Jason Ross <jasonross1024@gmail.com>"]
 edition = "2018"
 description = "API for string-like objects that have styles applied."
 readme = "README.md"
+license = "MIT OR Apache-2.0"
+keywords = ["string", "style"]
+categories = ["text-processing"]
+repository = "https://github.com/Jason-S-Ross/stylish-stringlike"
 
 [lib]
 name = "stylish_stringlike"
-version = "0.1.0"
+version = "0.2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
