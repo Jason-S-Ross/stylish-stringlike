@@ -65,11 +65,10 @@
 pub mod text;
 pub mod widget;
 
-#[cfg(feature = "ignore")]
 #[cfg(test)]
 mod test {
     use super::*;
-    use ansi_term::{ANSIString, Color, Style};
+    use ansi_term::{ANSIString, ANSIStrings, Color, Style};
     use text::*;
     use widget::*;
     fn make_spans(style: &Style, text: &str) -> Spans<Style> {
@@ -112,20 +111,22 @@ mod test {
         for widget in &widget_container {
             hbox.push(widget);
         }
-        let actual = hbox.truncate(20);
+        let actual = format!("{}", hbox.truncate(20));
         let expected = format!(
-            "{}{}{}{}{}{}{}{}{}{}{}",
-            Color::Black.paint("::"),
-            Color::Red.paint("So"),
-            ellipsis_string,
-            Color::Red.paint("g"),
-            Color::Blue.paint("::"),
-            Color::Green.paint("Ra"),
-            ellipsis_string,
-            Color::Green.paint("d"),
-            Color::Cyan.paint("::"),
-            Color::White.paint("Path"),
-            Color::Yellow.paint("::"),
+            "{}",
+            ANSIStrings(&[
+                Color::Black.paint("::"),
+                Color::Red.paint("So"),
+                ellipsis_string.clone(),
+                Color::Red.paint("g"),
+                Color::Blue.paint("::"),
+                Color::Green.paint("Ra"),
+                ellipsis_string,
+                Color::Green.paint("d"),
+                Color::Cyan.paint("::"),
+                Color::White.paint("Path"),
+                Color::Yellow.paint("::"),
+            ])
         );
         assert_eq!(expected, actual);
     }
