@@ -56,7 +56,7 @@ pub trait Splitable<'a, T> {
 
 impl<'a, T> Splitable<'a, &'a str> for T
 where
-    T: Sliceable<'a> + RawText,
+    T: Sliceable + RawText,
 {
     #[allow(clippy::type_complexity)]
     fn split(&'a self, pattern: &'a str) -> Box<dyn Iterator<Item = Split<Self, Self>> + 'a> {

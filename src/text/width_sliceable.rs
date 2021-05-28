@@ -32,7 +32,7 @@ pub trait WidthSliceable<'a> {
 
 impl<'a, T> WidthSliceable<'a> for T
 where
-    T: RawText + Sliceable<'a> + 'a + Sized,
+    T: RawText + Sliceable + 'a + Sized,
 {
     type Output = T;
     fn slice_width<R>(&'a self, range: R) -> Option<Self::Output>

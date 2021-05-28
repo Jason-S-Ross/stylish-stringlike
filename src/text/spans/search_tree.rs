@@ -128,11 +128,11 @@ impl fmt::Display for ShiftError {
 }
 impl Error for ShiftError {}
 
-impl<'a, V> Sliceable<'a> for SearchTree<V>
+impl<V> Sliceable for SearchTree<V>
 where
     V: Clone,
 {
-    fn slice<R>(&'a self, range: R) -> Option<Self>
+    fn slice<R>(&self, range: R) -> Option<Self>
     where
         R: std::ops::RangeBounds<usize> + Clone,
     {

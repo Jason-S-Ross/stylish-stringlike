@@ -30,7 +30,7 @@ pub trait Replaceable<'a, T> {
 
 impl<'a, T> Replaceable<'a, &'a T> for T
 where
-    T: Default + RawText + Sliceable<'a> + Pushable<T> + Expandable,
+    T: Default + RawText + Sliceable + Pushable<T> + Expandable,
 {
     fn replace(&'a self, from: &str, replacer: &'a T) -> Self {
         let mut result: T = Default::default();

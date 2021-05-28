@@ -7,7 +7,6 @@ use ansi_term::{ANSIString, Style};
 use regex::Captures;
 use std::borrow::Cow;
 use std::fmt;
-#[cfg(test)]
 use std::ops::Deref;
 use std::ops::RangeBounds;
 use unicode_width::UnicodeWidthStr;
@@ -82,13 +81,15 @@ impl<'a, T: Clone> Pushable<str> for Span<'a, T> {
         self.content.to_mut().push_str(other);
     }
 }
-impl<'a, T: Clone> Sliceable<'a> for Span<'a, T> {
-    fn slice<R>(&'a self, range: R) -> Option<Self>
+impl<'a, T: Clone> Sliceable for Span<'a, T> {
+    fn slice<R>(&self, range: R) -> Option<Self>
     where
         R: RangeBounds<usize> + Clone,
     {
-        let string = slice_string(&self.content, range);
-        string.map(|string| Span::new(self.style.clone(), Cow::Borrowed(string)))
+        self.content
+            .deref()
+            .slice(range)
+            .map(|ref s| Span::new(self.style.clone(), Cow::Owned(s.to_string())))
     }
 }
 impl<'a, T: Clone> RawText for Span<'a, T> {

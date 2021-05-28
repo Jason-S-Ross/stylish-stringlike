@@ -209,8 +209,8 @@ impl<'a, T: Clone + PartialEq> Replaceable<'a, &'a str> for Spans<T> {
     }
 }
 
-impl<'a, T: Clone> Sliceable<'a> for Spans<T> {
-    fn slice<R>(&'a self, range: R) -> Option<Self>
+impl<'a, T: Clone> Sliceable for Spans<T> {
+    fn slice<R>(&self, range: R) -> Option<Self>
     where
         R: RangeBounds<usize> + Clone,
     {
