@@ -6,15 +6,16 @@ pub trait Truncateable: HasWidth + WidthSliceable {}
 impl<'a, T> Truncateable for T where T: WidthSliceable + HasWidth {}
 
 /// Functionality for truncating objects using some strategy.
-pub trait TruncationStrategy<'a, T>
+pub trait TruncationStrategy<T>
 where
     T: WidthSliceable + HasWidth,
 {
     /// Truncates target to width. Output should have a width equal to width.
-    fn truncate(&'a self, target: &'a T, width: usize) -> Option<T::Output>;
+    fn truncate(&self, target: &T, width: usize) -> Option<T::Output>;
 }
 
 /// Styles for simple truncation.
+#[derive(Debug, Clone)]
 pub enum TruncationStyle<T: BoundedWidth> {
     /// Keeps the left text, truncates text on the right. Optional symbol added when truncation occurs.
     #[allow(dead_code)]
@@ -27,13 +28,13 @@ pub enum TruncationStyle<T: BoundedWidth> {
     Inner(T),
 }
 
-impl<'a, T, S> TruncationStrategy<'a, T> for TruncationStyle<S>
+impl<T, S> TruncationStrategy<T> for TruncationStyle<S>
 where
     T: Truncateable,
     S: BoundedWidth + WidthSliceable,
     T::Output: Pushable<T::Output> + Pushable<S::Output> + Default + WidthSliceable,
 {
-    fn truncate(&'a self, target: &'a T, width: usize) -> Option<T::Output> {
+    fn truncate(&self, target: &T, width: usize) -> Option<T::Output> {
         if width == 0 {
             return None;
         }

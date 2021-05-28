@@ -1,8 +1,8 @@
 mod search_tree;
 mod span;
 use super::{
-    slice_string, BoundedWidth, Expandable, HasWidth, Joinable, Paintable, Pushable, RawText,
-    Replaceable, Sliceable, Width,
+    BoundedWidth, Expandable, HasWidth, Joinable, Paintable, Pushable, RawText, Replaceable,
+    Sliceable, Width,
 };
 
 use regex::{Captures, Regex, Replacer};
@@ -11,7 +11,7 @@ pub use span::Span;
 use std::borrow::{Borrow, Cow};
 use std::fmt;
 use std::iter::{once, repeat, FromIterator};
-use std::ops::RangeBounds;
+use std::ops::{Deref, RangeBounds};
 /// A string with various styles applied to the span.
 /// Styles do not not cascade. Only the most recent style
 /// applies to the current character.
@@ -214,7 +214,7 @@ impl<'a, T: Clone> Sliceable for Spans<T> {
     where
         R: RangeBounds<usize> + Clone,
     {
-        let string = slice_string(&self.content, range.clone());
+        let string = self.content.deref().slice(range.clone());
         if self.spans.is_empty() {
             if let Some(string) = string {
                 return Some(Spans {

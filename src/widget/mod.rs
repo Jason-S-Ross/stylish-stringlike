@@ -31,7 +31,7 @@ mod test {
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Left(Some(ellipsis_span));
-        let widget = TextWidget::new(&text, &truncation);
+        let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&widget);
         let actual = format!("{}", hbox.truncate(4));
@@ -56,7 +56,7 @@ mod test {
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Left(Some(ellipsis_span));
-        let widget = TextWidget::new(&text, &truncation);
+        let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&widget);
         let actual = format!("{}", hbox.truncate(4));
@@ -81,7 +81,7 @@ mod test {
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Left(Some(ellipsis_span));
-        let widget = TextWidget::new(&text, &truncation);
+        let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&widget);
         let actual = format!("{}", hbox.truncate(9));
@@ -108,8 +108,8 @@ mod test {
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Left(Some(ellipsis_span));
         let widgets = vec![
-            TextWidget::new(&first_span, &truncation),
-            TextWidget::new(&second_span, &truncation),
+            TextWidget::new(Cow::Borrowed(&first_span), Cow::Borrowed(&truncation)),
+            TextWidget::new(Cow::Borrowed(&second_span), Cow::Borrowed(&truncation)),
         ];
         let mut hbox = HBox::new();
         hbox.push(&widgets[0]);
@@ -136,7 +136,7 @@ mod test {
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Left(Some(ellipsis_span));
-        let widget = TextWidget::new(&text, &truncation);
+        let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&widget);
         let actual = format!("{}", hbox.truncate(7));
@@ -156,7 +156,8 @@ mod test {
         let truncator_text = ".";
         let truncator_span = make_spans(&truncator_style, truncator_text);
         let truncation = TruncationStyle::Left(Some(truncator_span));
-        let repeat_text_widget = TextWidget::new(&repeat_widget, &truncation);
+        let repeat_text_widget =
+            TextWidget::new(Cow::Borrowed(&repeat_widget), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&repeat_text_widget);
         let actual = format!("{}", hbox.truncate(5));
@@ -178,7 +179,7 @@ mod test {
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Right(Some(ellipsis_span));
-        let widget = TextWidget::new(&text, &truncation);
+        let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&widget);
         let actual = format!("{}", hbox.truncate(4));
@@ -203,7 +204,7 @@ mod test {
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Right(Some(ellipsis_span));
-        let widget = TextWidget::new(&text, &truncation);
+        let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&widget);
         let actual = format!("{}", hbox.truncate(6));
@@ -232,7 +233,7 @@ mod test {
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Right(Some(ellipsis_span));
-        let widget = TextWidget::new(&text, &truncation);
+        let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&widget);
         let actual = format!("{}", hbox.truncate(9));
@@ -259,8 +260,8 @@ mod test {
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Right(Some(ellipsis_span));
         let widget_container = vec![
-            TextWidget::new(&first_span, &truncation),
-            TextWidget::new(&second_span, &truncation),
+            TextWidget::new(Cow::Borrowed(&first_span), Cow::Borrowed(&truncation)),
+            TextWidget::new(Cow::Borrowed(&second_span), Cow::Borrowed(&truncation)),
         ];
         let mut hbox = HBox::new();
         hbox.push(&widget_container[0]);
@@ -287,7 +288,7 @@ mod test {
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Right(Some(ellipsis_span));
-        let widget = TextWidget::new(&text, &truncation);
+        let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&widget);
         let actual = format!("{}", hbox.truncate(7));
@@ -305,7 +306,8 @@ mod test {
         let truncator_str = ".";
         let truncator_span = make_spans(&truncator_style, truncator_str);
         let truncation = TruncationStyle::Right(Some(truncator_span));
-        let repeat_text_widget = TextWidget::new(&repeat_widget, &truncation);
+        let repeat_text_widget =
+            TextWidget::new(Cow::Borrowed(&repeat_widget), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&repeat_text_widget);
         let actual = format!("{}", hbox.truncate(5));
@@ -325,7 +327,7 @@ mod test {
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Inner(Some(ellipsis_span));
-        let widget = TextWidget::new(&text, &truncation);
+        let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&widget);
         let actual = format!("{}", hbox.truncate(4));
@@ -354,7 +356,7 @@ mod test {
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Inner(Some(ellipsis_span));
-        let widget = TextWidget::new(&text, &truncation);
+        let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&widget);
         let actual = format!("{}", hbox.truncate(6));
@@ -383,7 +385,7 @@ mod test {
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Inner(Some(ellipsis_span));
-        let widget = TextWidget::new(&text, &truncation);
+        let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&widget);
         let actual = format!("{}", hbox.truncate(9));
@@ -413,8 +415,8 @@ mod test {
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Inner(Some(ellipsis_span));
         let widgets = vec![
-            TextWidget::new(&first_span, &truncation),
-            TextWidget::new(&second_span, &truncation),
+            TextWidget::new(Cow::Borrowed(&first_span), Cow::Borrowed(&truncation)),
+            TextWidget::new(Cow::Borrowed(&second_span), Cow::Borrowed(&truncation)),
         ];
         let mut hbox = HBox::new();
         hbox.push(&widgets[0]);
@@ -442,14 +444,13 @@ mod test {
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Inner(Some(ellipsis_span));
-        let widget = TextWidget::new(&text, &truncation);
+        let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&widget);
         let actual = format!("{}", hbox.truncate(7));
         let expected = format!("{}", ANSIStrings(&[style.paint(content)]));
         assert_eq!(expected, actual);
     }
-    #[cfg(feature = "ignore")]
     #[test]
     fn trunctate_infinite_inner() {
         let repeat_widget = Repeat::new(Span::<Style>::new(
@@ -461,19 +462,21 @@ mod test {
         let truncator = truncator_style.paint(truncator_text);
         let truncator_span = make_spans(&truncator_style, truncator_text);
         let truncation = TruncationStyle::Inner(Some(truncator_span));
-        let repeat_text_widget = TextWidget::new(&repeat_widget, &truncation);
+        let repeat_text_widget =
+            TextWidget::new(Cow::Borrowed(&repeat_widget), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&repeat_text_widget);
         let actual = format!("{}", hbox.truncate(5));
         let expected = format!(
-            "{}{}{}",
-            Color::Blue.normal().paint("=="),
-            truncator.clone(),
-            Color::Blue.normal().paint("=="),
+            "{}",
+            ANSIStrings(&[
+                Color::Blue.normal().paint("=="),
+                truncator.clone(),
+                Color::Blue.normal().paint("=="),
+            ])
         );
         assert_eq!(expected, actual);
     }
-    #[cfg(feature = "ignore")]
     #[test]
     fn trunctate_infinite_none_left() {
         let span = Span::<Style>::new(
@@ -487,14 +490,14 @@ mod test {
         let truncator_text = ".";
         let truncator_span = make_spans(&truncator_style, truncator_text);
         let truncation = TruncationStyle::Left(Some(truncator_span));
-        let repeat_text_widget = TextWidget::new(&repeat_widget, &truncation);
+        let repeat_text_widget =
+            TextWidget::new(Cow::Borrowed(&repeat_widget), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&repeat_text_widget);
         let actual = format!("{}", hbox.truncate(0));
         let expected = String::new();
         assert_eq!(expected, actual);
     }
-    #[cfg(feature = "ignore")]
     #[test]
     fn trunctate_infinite_none_right() {
         let span = Span::<Style>::new(
@@ -508,14 +511,14 @@ mod test {
         let truncator_text = ".";
         let truncator_span = make_spans(&truncator_style, truncator_text);
         let truncation = TruncationStyle::Right(Some(truncator_span));
-        let repeat_text_widget = TextWidget::new(&repeat_widget, &truncation);
+        let repeat_text_widget =
+            TextWidget::new(Cow::Borrowed(&repeat_widget), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&repeat_text_widget);
         let actual = format!("{}", hbox.truncate(0));
         let expected = String::new();
         assert_eq!(expected, actual);
     }
-    #[cfg(feature = "ignore")]
     #[test]
     fn trunctate_infinite_none_inner() {
         let span = Span::<Style>::new(
@@ -529,14 +532,14 @@ mod test {
         let truncator_text = ".";
         let truncator_span = make_spans(&truncator_style, truncator_text);
         let truncation = TruncationStyle::Inner(Some(truncator_span));
-        let repeat_text_widget = TextWidget::new(&repeat_widget, &truncation);
+        let repeat_text_widget =
+            TextWidget::new(Cow::Borrowed(&repeat_widget), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&repeat_text_widget);
         let actual = format!("{}", hbox.truncate(0));
         let expected = String::new();
         assert_eq!(expected, actual);
     }
-    #[cfg(feature = "ignore")]
     #[test]
     fn trunctate_infinite_only_symbol() {
         let span = Span::<Style>::new(
@@ -550,7 +553,8 @@ mod test {
         let truncator_text = ".";
         let truncator_span = make_spans(&truncator_style, truncator_text);
         let truncation = TruncationStyle::Inner(Some(truncator_span));
-        let repeat_text_widget = TextWidget::new(&repeat_widget, &truncation);
+        let repeat_text_widget =
+            TextWidget::new(Cow::Borrowed(&repeat_widget), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
         hbox.push(&repeat_text_widget);
         let actual = format!("{}", hbox.truncate(1));

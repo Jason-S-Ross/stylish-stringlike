@@ -126,7 +126,7 @@ mod test {
             ellipsis.push(&Span::new(Cow::Borrowed(&fmt_1), Cow::Borrowed("...")));
             TruncationStyle::Left(ellipsis)
         };
-        let widget = TextWidget::new(&spans, &truncator);
+        let widget = TextWidget::new(Cow::Borrowed(&spans), Cow::Borrowed(&truncator));
         let mut hbox: HBox<Spans<Tag>> = Default::default();
         hbox.push(&widget);
         let actual = format!("{}", hbox.truncate(9));
@@ -141,7 +141,7 @@ mod test {
         let repeat = Repeat::new(span);
         let truncator =
             TruncationStyle::Left(Span::new(Cow::Borrowed(&fmt_1), Cow::Borrowed("...")));
-        let widget = TextWidget::new(&repeat, &truncator);
+        let widget = TextWidget::new(Cow::Borrowed(&repeat), Cow::Borrowed(&truncator));
         let mut hbox: HBox<Spans<Tag>> = Default::default();
         hbox.push(&widget);
         let actual = format!("{}", hbox.truncate(5));
@@ -156,7 +156,7 @@ mod test {
         spans.push(&Span::new(Cow::Borrowed(&fmt_2), Cow::Borrowed("01234")));
         spans.push(&Span::new(Cow::Borrowed(&fmt_3), Cow::Borrowed("56789")));
         let truncator = TruncationStyle::Left("...");
-        let widget = TextWidget::new(&spans, &truncator);
+        let widget = TextWidget::new(Cow::Borrowed(&spans), Cow::Borrowed(&truncator));
         let mut hbox: HBox<Spans<Tag>> = Default::default();
         hbox.push(&widget);
         let actual = format!("{}", hbox.truncate(9));

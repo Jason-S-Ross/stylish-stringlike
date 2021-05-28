@@ -1,6 +1,6 @@
 use super::{
-    slice_string, BoundedWidth, Expandable, HasWidth, Joinable, Paintable, Pushable, RawText,
-    Sliceable, Spans, Width,
+    BoundedWidth, Expandable, HasWidth, Joinable, Paintable, Pushable, RawText, Sliceable, Spans,
+    Width,
 };
 #[cfg(test)]
 use ansi_term::{ANSIString, Style};
@@ -12,7 +12,7 @@ use std::ops::RangeBounds;
 use unicode_width::UnicodeWidthStr;
 
 /// A span of text having a single style.
-#[derive(Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Span<'a, T: Clone> {
     style: Cow<'a, T>,
     content: Cow<'a, str>,

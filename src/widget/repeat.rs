@@ -4,7 +4,7 @@ use std::ops::{Bound, RangeBounds};
 use std::marker::PhantomData;
 
 /// A text widget that repeats its content arbitrarily many times.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Repeat<'a, T> {
     content: T,
     _marker: PhantomData<&'a ()>,

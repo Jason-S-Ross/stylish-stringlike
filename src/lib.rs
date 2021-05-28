@@ -59,8 +59,8 @@
 //! )));
 //! let first_spans = make_spans(&italic, "abcdefg");
 //! let second_spans = make_spans(&bold, "12345678");
-//! let first_segment = TextWidget::new(&first_spans, &truncation);
-//! let second_segment = TextWidget::new(&second_spans, &truncation);
+//! let first_segment = TextWidget::new(Cow::Borrowed(&first_spans), Cow::Borrowed(&truncation));
+//! let second_segment = TextWidget::new(Cow::Borrowed(&second_spans), Cow::Borrowed(&truncation));
 //!
 //! let mut hbox: HBox<Spans<Tag>> = Default::default();
 //! hbox.push(&first_segment);
@@ -77,6 +77,7 @@ pub mod widget;
 mod test {
     use super::*;
     use ansi_term::{ANSIString, ANSIStrings, Color, Style};
+    use std::borrow::Cow;
     use text::*;
     use widget::*;
     fn make_spans(style: &Style, text: &str) -> Spans<Style> {
@@ -98,27 +99,22 @@ mod test {
             Color::Yellow.paint("::"),
         ];
         let spans: Spans<_> = texts.iter().map(Span::<Style>::from).collect();
-        let split = spans.split("::").collect::<Vec<_>>();
         let ellipsis_string = Color::Blue.paint("…");
         let ellipsis_span = make_spans(&Color::Blue.normal(), "…");
         let truncation = TruncationStyle::Inner(Some(ellipsis_span));
-        let widget_container = split
-            .iter()
-            .filter_map(|Split { segment, delim }| match (segment, delim) {
-                (Some(segment), Some(delim)) => Some(vec![
-                    TextWidget::new(segment, &truncation),
-                    TextWidget::new(delim, &truncation),
-                ]),
-                (Some(segment), None) => Some(vec![TextWidget::new(segment, &truncation)]),
-                (None, Some(delim)) => Some(vec![TextWidget::new(delim, &truncation)]),
-                (None, None) => None,
-            })
+
+        let widgets = spans
+            .split("::")
+            .map(|Split { segment, delim }| vec![segment, delim])
             .flatten()
+            .flatten()
+            .map(|s| TextWidget::<Spans<Style>, _>::new(Cow::Owned(s), Cow::Borrowed(&truncation)))
             .collect::<Vec<_>>();
         let mut hbox = HBox::new();
-        for widget in &widget_container {
+        for widget in &widgets {
             hbox.push(widget);
         }
+
         let actual = format!("{}", hbox.truncate(20));
         let expected = format!(
             "{}",
@@ -147,27 +143,20 @@ mod test {
             spans.push(&span);
             spans
         };
-        let split = spans.split("//").collect::<Vec<_>>();
         let truncation = TruncationStyle::Inner(Some(make_spans(&Color::Blue.normal(), "……")));
-        let widget_container = split
-            .iter()
-            .map(|Split { segment, delim }| {
-                let mut res = vec![];
-                if let Some(segment) = segment {
-                    res.push(segment);
-                }
-                if let Some(delim) = delim {
-                    res.push(delim);
-                }
-                res
-            })
+
+        let widgets = spans
+            .split("::")
+            .map(|Split { segment, delim }| vec![segment, delim])
             .flatten()
-            .map(|s| TextWidget::new(s, &truncation))
+            .flatten()
+            .map(|s| TextWidget::<Spans<Style>, _>::new(Cow::Owned(s), Cow::Borrowed(&truncation)))
             .collect::<Vec<_>>();
-        let mut hbox: HBox<Spans<Style>> = Default::default();
-        for widget in &widget_container {
+        let mut hbox = HBox::new();
+        for widget in &widgets {
             hbox.push(widget);
         }
+
         let expected = format!("{}", path);
         let actual = format!("{}", hbox.truncate(50));
         assert_eq!(expected, actual);
