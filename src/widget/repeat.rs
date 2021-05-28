@@ -25,13 +25,13 @@ impl<'a, T> HasWidth for Repeat<'a, T> {
     }
 }
 
-impl<'a, T, U> WidthSliceable<'a> for Repeat<'a, T>
+impl<'a, T, U> WidthSliceable for Repeat<'a, T>
 where
-    T: BoundedWidth + WidthSliceable<'a, Output = T> + Joinable<T, Output = U>,
+    T: BoundedWidth + WidthSliceable<Output = T> + Joinable<T, Output = U>,
     U: Default + Joinable<U, Output = U> + Joinable<T, Output = U> + BoundedWidth + 'a,
 {
     type Output = U;
-    fn slice_width<R>(&'a self, range: R) -> Option<Self::Output>
+    fn slice_width<R>(&self, range: R) -> Option<Self::Output>
     where
         R: RangeBounds<usize>,
     {

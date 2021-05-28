@@ -1,14 +1,14 @@
 use crate::text::{BoundedWidth, HasWidth, Pushable, Width, WidthSliceable};
 
 /// Objects that have width and are sliceable on width are truncateable.
-pub trait Truncateable<'a>: HasWidth + WidthSliceable<'a> {}
+pub trait Truncateable: HasWidth + WidthSliceable {}
 
-impl<'a, T> Truncateable<'a> for T where T: WidthSliceable<'a> + HasWidth {}
+impl<'a, T> Truncateable for T where T: WidthSliceable + HasWidth {}
 
 /// Functionality for truncating objects using some strategy.
 pub trait TruncationStrategy<'a, T>
 where
-    T: WidthSliceable<'a> + HasWidth,
+    T: WidthSliceable + HasWidth,
 {
     /// Truncates target to width. Output should have a width equal to width.
     fn truncate(&'a self, target: &'a T, width: usize) -> Option<T::Output>;
@@ -29,9 +29,9 @@ pub enum TruncationStyle<T: BoundedWidth> {
 
 impl<'a, T, S> TruncationStrategy<'a, T> for TruncationStyle<S>
 where
-    T: Truncateable<'a>,
-    S: BoundedWidth + WidthSliceable<'a>,
-    T::Output: Pushable<T::Output> + Pushable<S::Output> + Default + WidthSliceable<'a>,
+    T: Truncateable,
+    S: BoundedWidth + WidthSliceable,
+    T::Output: Pushable<T::Output> + Pushable<S::Output> + Default + WidthSliceable,
 {
     fn truncate(&'a self, target: &'a T, width: usize) -> Option<T::Output> {
         if width == 0 {

@@ -7,8 +7,8 @@ use unicode_width::UnicodeWidthStr;
 ///
 /// This is useful for ensuring that a text object fits in a given terminal
 /// width.
-pub trait WidthSliceable<'a> {
-    type Output: 'a + Sized;
+pub trait WidthSliceable {
+    type Output: Sized;
     /// Slice an object by width rather than by bytes.
     ///
     /// # Example
@@ -25,17 +25,17 @@ pub trait WidthSliceable<'a> {
     /// // If we aren't column-aligned, we get nothing because no one monkey fits between 1 and 3
     /// assert_eq!(None, bar.slice_width(1..3));
     /// ```
-    fn slice_width<R>(&'a self, range: R) -> Option<Self::Output>
+    fn slice_width<R>(&self, range: R) -> Option<Self::Output>
     where
         R: RangeBounds<usize>;
 }
 
-impl<'a, T> WidthSliceable<'a> for T
+impl<T> WidthSliceable for T
 where
-    T: RawText + Sliceable + 'a + Sized,
+    T: RawText + Sliceable + Sized,
 {
     type Output = T;
-    fn slice_width<R>(&'a self, range: R) -> Option<Self::Output>
+    fn slice_width<R>(&self, range: R) -> Option<Self::Output>
     where
         Self: Sized,
         R: RangeBounds<usize>,
@@ -76,12 +76,12 @@ where
     }
 }
 
-impl<'a, T> WidthSliceable<'a> for Option<T>
+impl<T> WidthSliceable for Option<T>
 where
-    T: WidthSliceable<'a>,
+    T: WidthSliceable,
 {
     type Output = T::Output;
-    fn slice_width<R>(&'a self, range: R) -> Option<Self::Output>
+    fn slice_width<R>(&self, range: R) -> Option<Self::Output>
     where
         R: RangeBounds<usize>,
     {

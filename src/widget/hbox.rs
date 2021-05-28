@@ -3,18 +3,18 @@ use crate::widget::{Fitable, Truncateable};
 
 /// A displayable box of text widgets.
 #[derive(Default)]
-pub struct HBox<'a, T: Truncateable<'a>> {
-    elements: Vec<&'a dyn Fitable<'a, T>>,
+pub struct HBox<'a, T: Truncateable> {
+    elements: Vec<&'a dyn Fitable<T>>,
 }
 
-impl<'a, T: Truncateable<'a>> HBox<'a, T> {
+impl<'a, T: Truncateable> HBox<'a, T> {
     pub fn new() -> Self {
         HBox {
             elements: Vec::new(),
         }
     }
     /// Adds an element.
-    pub fn push(&mut self, element: &'a dyn Fitable<'a, T>) {
+    pub fn push(&mut self, element: &'a dyn Fitable<T>) {
         self.elements.push(element);
     }
     /// Truncates this widget to a given size.

@@ -2,7 +2,7 @@ use crate::text::{HasWidth, Width};
 use crate::widget::{Truncateable, TruncationStrategy};
 
 /// Widgets that can be truncated to fit in a provided width.
-pub trait Fitable<'a, T: Truncateable<'a>>: HasWidth {
+pub trait Fitable<T: Truncateable>: HasWidth {
     /// Truncate self to fit in a given width.
     fn truncate(&self, width: usize) -> Option<T>;
 }
@@ -22,11 +22,11 @@ impl<'a, T, U> TextWidget<'a, T, U> {
     }
 }
 
-impl<'a, T, U> Fitable<'a, T::Output> for TextWidget<'a, T, U>
+impl<'a, T, U> Fitable<T::Output> for TextWidget<'a, T, U>
 where
-    T: Truncateable<'a>,
+    T: Truncateable,
     U: TruncationStrategy<'a, T>,
-    T::Output: Truncateable<'a> + HasWidth,
+    T::Output: Truncateable + HasWidth,
 {
     fn truncate(&self, width: usize) -> Option<T::Output> {
         self.truncation_strategy.truncate(self.text, width)
