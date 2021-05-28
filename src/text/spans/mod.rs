@@ -8,11 +8,9 @@ use super::{
 use regex::{Captures, Regex, Replacer};
 use search_tree::SearchTree;
 pub use span::Span;
-use std::borrow::Borrow;
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
 use std::fmt;
-use std::iter::FromIterator;
-use std::iter::{once, repeat};
+use std::iter::{once, repeat, FromIterator};
 use std::ops::RangeBounds;
 /// A string with various styles applied to the span.
 /// Styles do not not cascade. Only the most recent style
@@ -127,6 +125,12 @@ impl<'a, T: Clone + PartialEq> Pushable<Span<'a, T>> for Spans<T> {
         self.content.push_str(other.raw_ref());
         self.spans.dedup();
         self.trim();
+    }
+}
+
+impl<T> Pushable<&str> for Spans<T> {
+    fn push(&mut self, other: &&str) {
+        self.content.push_str(other);
     }
 }
 

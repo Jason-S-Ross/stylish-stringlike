@@ -148,4 +148,19 @@ mod test {
         let expected = String::from("<2>==</2><1>...</1>");
         assert_eq!(expected, actual);
     }
+    #[test]
+    fn make_hbox_literal() {
+        let fmt_2 = Tag::new("<2>", "</2>");
+        let fmt_3 = Tag::new("<3>", "</3>");
+        let mut spans: Spans<Tag> = Default::default();
+        spans.push(&Span::new(Cow::Borrowed(&fmt_2), Cow::Borrowed("01234")));
+        spans.push(&Span::new(Cow::Borrowed(&fmt_3), Cow::Borrowed("56789")));
+        let truncator = TruncationStyle::Left("...");
+        let widget = TextWidget::new(&spans, &truncator);
+        let mut hbox: HBox<Spans<Tag>> = Default::default();
+        hbox.push(&widget);
+        let actual = format!("{}", hbox.truncate(9));
+        let expected = String::from("<2>01234</2><3>5...</3>");
+        assert_eq!(expected, actual);
+    }
 }
