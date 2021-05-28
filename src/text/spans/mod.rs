@@ -155,7 +155,7 @@ impl<T: Default + Clone + PartialEq> Expandable for Spans<T> {
 
 // Did a specific impl for this because I haven't figured out how to get
 // a blanket impl over string that works properly
-impl<'a, T: Clone + PartialEq> Replaceable<'a, &'a str> for Spans<T> {
+impl<'a, T: Clone + PartialEq> Replaceable<&'a str> for Spans<T> {
     fn replace(&self, from: &str, replacer: &'a str) -> Self {
         let mut result = Spans {
             content: String::new(),

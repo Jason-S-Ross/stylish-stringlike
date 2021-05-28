@@ -3,7 +3,7 @@ use regex::Regex;
 /// Replacing text in text-like objects.
 ///
 /// This is implemented for [`String`] by default.
-pub trait Replaceable<'a, T> {
+pub trait Replaceable<T> {
     /// Perform literal string replacement.
     ///
     /// # Example
@@ -13,7 +13,7 @@ pub trait Replaceable<'a, T> {
     /// let bar = Replaceable::<&String>::replace(&foo, "foo", &String::from("bar"));
     /// assert_eq!(String::from("bar"), bar);
     /// ```
-    fn replace(&'a self, from: &str, replacer: T) -> Self;
+    fn replace(&self, from: &str, replacer: T) -> Self;
     /// Perform regex string replacement.
     ///
     /// # Example
@@ -25,14 +25,14 @@ pub trait Replaceable<'a, T> {
     /// let bar = Replaceable::<&String>::replace_regex(&foooo, &re, &String::from("bar"));
     /// assert_eq!(bar, String::from("bar"));
     /// ```
-    fn replace_regex(&'a self, searcher: &Regex, replacer: T) -> Self;
+    fn replace_regex(&self, searcher: &Regex, replacer: T) -> Self;
 }
 
-impl<'a, T> Replaceable<'a, &'a T> for T
+impl<'a, T> Replaceable<&'a T> for T
 where
     T: Default + RawText + Sliceable + Pushable<T> + Expandable,
 {
-    fn replace(&'a self, from: &str, replacer: &'a T) -> Self {
+    fn replace(&self, from: &str, replacer: &'a T) -> Self {
         let mut result: T = Default::default();
         let mut last_end = 0;
         for (start, part) in self.raw_ref().match_indices(from) {
@@ -54,7 +54,7 @@ where
         }
         result
     }
-    fn replace_regex(&'a self, searcher: &Regex, replacer: &'a T) -> Self {
+    fn replace_regex(&self, searcher: &Regex, replacer: &'a T) -> Self {
         let mut result: T = Default::default();
         let mut last_end = 0;
         let captures = searcher.captures_iter(self.raw_ref());
