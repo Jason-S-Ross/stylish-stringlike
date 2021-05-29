@@ -17,8 +17,9 @@
 //!
 //! ```rust
 //! use std::borrow::Cow;
-//! use stylish_stringlike::text::{Joinable, Paintable, Pushable, Replaceable, Sliceable, Span, Spans, Tag};
-//! use stylish_stringlike::widget::{HBox, TextWidget, TruncationStyle};
+//! use stylish_stringlike::text::{Joinable, Paintable, Pushable, Replaceable, Sliceable, Span,
+//!     Spans, Tag};
+//! use stylish_stringlike::widget::{Fitable, HBox, TextWidget, TruncationStyle};
 //!
 //! let italic = Tag::new("<i>", "</i>");
 //! let bold = Tag::new("<b>", "</b>");
@@ -57,14 +58,18 @@
 //!     Cow::Borrowed(&underline),
 //!     Cow::Borrowed("…"),
 //! )));
-//! let first_spans = make_spans(&italic, "abcdefg");
-//! let second_spans = make_spans(&bold, "12345678");
-//! let first_segment = TextWidget::new(Cow::Borrowed(&first_spans), Cow::Borrowed(&truncation));
-//! let second_segment = TextWidget::new(Cow::Borrowed(&second_spans), Cow::Borrowed(&truncation));
-//!
-//! let mut hbox: HBox<Spans<Tag>> = Default::default();
-//! hbox.push(&first_segment);
-//! hbox.push(&second_segment);
+//! let spans = vec![make_spans(&italic, "abcdefg"), make_spans(&bold, "12345678")];
+//! let hbox = spans
+//!     .iter()
+//!     .map(|s| {
+//!         let b: Box<dyn Fitable<_>> =
+//!             Box::new(TextWidget::<Spans<_>, TruncationStyle<_>>::new(
+//!                 Cow::Borrowed(s),
+//!                 Cow::Borrowed(&truncation),
+//!             ));
+//!         b
+//!     })
+//!     .collect::<HBox<_>>();
 //! assert_eq!(
 //!     format!("{}", hbox.truncate(10)),
 //!     "<i>ab</i><u>…</u><i>fg</i><b>12</b><u>…</u><b>78</b>"
@@ -101,21 +106,24 @@ mod test {
         let spans: Spans<_> = texts.iter().map(Span::<Style>::from).collect();
         let ellipsis_string = Color::Blue.paint("…");
         let ellipsis_span = make_spans(&Color::Blue.normal(), "…");
-        let truncation = TruncationStyle::Inner(Some(ellipsis_span));
+        let truncation = TruncationStyle::Inner(ellipsis_span.clone());
 
-        let widgets = spans
+        let actual = spans
             .split("::")
             .map(|Split { segment, delim }| vec![segment, delim])
             .flatten()
             .flatten()
-            .map(|s| TextWidget::<Spans<Style>, _>::new(Cow::Owned(s), Cow::Borrowed(&truncation)))
-            .collect::<Vec<_>>();
-        let mut hbox = HBox::new();
-        for widget in &widgets {
-            hbox.push(widget);
-        }
-
-        let actual = format!("{}", hbox.truncate(20));
+            .map(|s| {
+                let foo: Box<dyn Fitable<_>> =
+                    Box::new(TextWidget::<Spans<_>, TruncationStyle<_>>::new(
+                        Cow::Owned(s),
+                        Cow::Borrowed(&truncation),
+                    ));
+                foo
+            })
+            .collect::<HBox<_>>()
+            .truncate(20)
+            .to_string();
         let expected = format!(
             "{}",
             ANSIStrings(&[
@@ -145,20 +153,24 @@ mod test {
         };
         let truncation = TruncationStyle::Inner(Some(make_spans(&Color::Blue.normal(), "……")));
 
-        let widgets = spans
+        let actual = spans
             .split("::")
             .map(|Split { segment, delim }| vec![segment, delim])
             .flatten()
             .flatten()
-            .map(|s| TextWidget::<Spans<Style>, _>::new(Cow::Owned(s), Cow::Borrowed(&truncation)))
-            .collect::<Vec<_>>();
-        let mut hbox = HBox::new();
-        for widget in &widgets {
-            hbox.push(widget);
-        }
+            .map(|s| {
+                let foo: Box<dyn Fitable<_>> =
+                    Box::new(TextWidget::<Spans<Style>, TruncationStyle<_>>::new(
+                        Cow::Owned(s),
+                        Cow::Borrowed(&truncation),
+                    ));
+                foo
+            })
+            .collect::<HBox<_>>()
+            .truncate(50)
+            .to_string();
 
         let expected = format!("{}", path);
-        let actual = format!("{}", hbox.truncate(50));
         assert_eq!(expected, actual);
     }
 }

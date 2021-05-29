@@ -28,7 +28,7 @@ impl<'a, T: Clone, U: Clone> Fitable<T::Output> for TextWidget<'a, T, U>
 where
     T: Truncateable,
     U: TruncationStrategy<T>,
-    T::Output: Truncateable + HasWidth,
+    T::Output: Truncateable,
 {
     fn truncate(&self, width: usize) -> Option<T::Output> {
         self.truncation_strategy.truncate(self.text.deref(), width)

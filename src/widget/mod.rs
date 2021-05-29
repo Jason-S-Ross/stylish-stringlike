@@ -22,6 +22,7 @@ mod test {
         spans.push(&span);
         spans
     }
+
     #[test]
     fn truncate_trivial_left() {
         let style = Color::Red.normal();
@@ -33,7 +34,7 @@ mod test {
         let truncation = TruncationStyle::Left(Some(ellipsis_span));
         let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&widget);
+        hbox.push(Box::new(widget));
         let actual = format!("{}", hbox.truncate(4));
         let expected = format!(
             "{}",
@@ -41,6 +42,7 @@ mod test {
         );
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn truncate_compound_span_left() {
         let style0 = Color::Red.normal();
@@ -58,7 +60,7 @@ mod test {
         let truncation = TruncationStyle::Left(Some(ellipsis_span));
         let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&widget);
+        hbox.push(Box::new(widget));
         let actual = format!("{}", hbox.truncate(4));
         let expected = format!(
             "{}",
@@ -66,6 +68,7 @@ mod test {
         );
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn truncate_compound_span_2_left() {
         let style0 = Color::Red.normal();
@@ -83,7 +86,7 @@ mod test {
         let truncation = TruncationStyle::Left(Some(ellipsis_span));
         let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&widget);
+        hbox.push(Box::new(widget));
         let actual = format!("{}", hbox.truncate(9));
         let expected = format!(
             "{}",
@@ -95,6 +98,7 @@ mod test {
         );
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn truncate_two_widgets_first_left() {
         let style0 = Color::Red.normal();
@@ -107,13 +111,17 @@ mod test {
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Left(Some(ellipsis_span));
-        let widgets = vec![
-            TextWidget::new(Cow::Borrowed(&first_span), Cow::Borrowed(&truncation)),
-            TextWidget::new(Cow::Borrowed(&second_span), Cow::Borrowed(&truncation)),
-        ];
-        let mut hbox = HBox::new();
-        hbox.push(&widgets[0]);
-        hbox.push(&widgets[1]);
+        let hbox = vec![&first_span, &second_span]
+            .iter()
+            .map(|s| {
+                let foo: Box<dyn Fitable<_>> =
+                    Box::new(TextWidget::<Spans<_>, TruncationStyle<_>>::new(
+                        Cow::Borrowed(s),
+                        Cow::Borrowed(&truncation),
+                    ));
+                foo
+            })
+            .collect::<HBox<Spans<_>>>();
         let actual = format!("{}", hbox.truncate(8));
         let expected = format!(
             "{}",
@@ -126,6 +134,7 @@ mod test {
         );
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn truncate_trivial_left_noop() {
         let style = Color::Red.normal();
@@ -138,11 +147,12 @@ mod test {
         let truncation = TruncationStyle::Left(Some(ellipsis_span));
         let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&widget);
+        hbox.push(Box::new(widget));
         let actual = format!("{}", hbox.truncate(7));
         let expected = format!("{}", ANSIStrings(&[string]));
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn trunctate_infinite_left() {
         let span = Span::<Style>::new(
@@ -159,7 +169,7 @@ mod test {
         let repeat_text_widget =
             TextWidget::new(Cow::Borrowed(&repeat_widget), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&repeat_text_widget);
+        hbox.push(Box::new(repeat_text_widget));
         let actual = format!("{}", hbox.truncate(5));
         let expected = format!(
             "{}",
@@ -170,6 +180,7 @@ mod test {
         );
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn truncate_trivial_right() {
         let style = Color::Red.normal();
@@ -181,7 +192,7 @@ mod test {
         let truncation = TruncationStyle::Right(Some(ellipsis_span));
         let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&widget);
+        hbox.push(Box::new(widget));
         let actual = format!("{}", hbox.truncate(4));
         let expected = format!(
             "{}",
@@ -189,6 +200,7 @@ mod test {
         );
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn truncate_compound_span_right() {
         let style0 = Color::Red.normal();
@@ -206,7 +218,7 @@ mod test {
         let truncation = TruncationStyle::Right(Some(ellipsis_span));
         let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&widget);
+        hbox.push(Box::new(widget));
         let actual = format!("{}", hbox.truncate(6));
         let expected = format!(
             "{}",
@@ -218,6 +230,7 @@ mod test {
         );
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn truncate_compound_span_2_right() {
         let style0 = Color::Red.normal();
@@ -235,7 +248,7 @@ mod test {
         let truncation = TruncationStyle::Right(Some(ellipsis_span));
         let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&widget);
+        hbox.push(Box::new(widget));
         let actual = format!("{}", hbox.truncate(9));
         let expected = format!(
             "{}",
@@ -247,6 +260,7 @@ mod test {
         );
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn truncate_two_widgets_first_right() {
         let style0 = Color::Red.normal();
@@ -259,13 +273,17 @@ mod test {
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Right(Some(ellipsis_span));
-        let widget_container = vec![
-            TextWidget::new(Cow::Borrowed(&first_span), Cow::Borrowed(&truncation)),
-            TextWidget::new(Cow::Borrowed(&second_span), Cow::Borrowed(&truncation)),
-        ];
-        let mut hbox = HBox::new();
-        hbox.push(&widget_container[0]);
-        hbox.push(&widget_container[1]);
+        let hbox = vec![&first_span, &second_span]
+            .iter()
+            .map(|s| {
+                let b: Box<dyn Fitable<_>> =
+                    Box::new(TextWidget::<Spans<_>, TruncationStyle<_>>::new(
+                        Cow::Borrowed(s),
+                        Cow::Borrowed(&truncation),
+                    ));
+                b
+            })
+            .collect::<HBox<_>>();
         let actual = format!("{}", hbox.truncate(8));
         let expected = format!(
             "{}",
@@ -278,6 +296,7 @@ mod test {
         );
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn truncate_trivial_right_noop() {
         let style = Color::Red.normal();
@@ -290,12 +309,12 @@ mod test {
         let truncation = TruncationStyle::Right(Some(ellipsis_span));
         let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&widget);
+        hbox.push(Box::new(widget));
         let actual = format!("{}", hbox.truncate(7));
         let expected = format!("{}", ANSIStrings(&[string]));
         assert_eq!(expected, actual);
     }
-    #[cfg(feature = "ignore")]
+
     #[test]
     fn trunctate_infinite_right() {
         let repeat_widget = Repeat::new(Span::<Style>::new(
@@ -309,15 +328,18 @@ mod test {
         let repeat_text_widget =
             TextWidget::new(Cow::Borrowed(&repeat_widget), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&repeat_text_widget);
+        hbox.push(Box::new(repeat_text_widget));
         let actual = format!("{}", hbox.truncate(5));
         let expected = format!(
-            "{}{}",
-            truncator_style.paint(truncator_str),
-            Color::Blue.normal().paint("===="),
+            "{}",
+            ANSIStrings(&[
+                truncator_style.paint(truncator_str),
+                Color::Blue.normal().paint("===="),
+            ])
         );
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn truncate_trivial_inner() {
         let style = Color::Red.normal();
@@ -329,7 +351,7 @@ mod test {
         let truncation = TruncationStyle::Inner(Some(ellipsis_span));
         let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&widget);
+        hbox.push(Box::new(widget));
         let actual = format!("{}", hbox.truncate(4));
         let expected = format!(
             "{}",
@@ -341,6 +363,7 @@ mod test {
         );
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn truncate_compound_span_inner() {
         let style0 = Color::Red.normal();
@@ -358,7 +381,7 @@ mod test {
         let truncation = TruncationStyle::Inner(Some(ellipsis_span));
         let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&widget);
+        hbox.push(Box::new(widget));
         let actual = format!("{}", hbox.truncate(6));
         let expected = format!(
             "{}",
@@ -370,6 +393,7 @@ mod test {
         );
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn truncate_compound_span_2_inner() {
         let style0 = Color::Red.normal();
@@ -387,7 +411,7 @@ mod test {
         let truncation = TruncationStyle::Inner(Some(ellipsis_span));
         let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&widget);
+        hbox.push(Box::new(widget));
         let actual = format!("{}", hbox.truncate(9));
         let expected = format!(
             "{}",
@@ -402,6 +426,7 @@ mod test {
         eprintln!("actual:   {}", actual);
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn truncate_two_widgets_first_inner() {
         let style0 = Color::Red.normal();
@@ -414,13 +439,18 @@ mod test {
         let ellipsis = "…";
         let ellipsis_span = make_spans(&ellipsis_style, ellipsis);
         let truncation = TruncationStyle::Inner(Some(ellipsis_span));
-        let widgets = vec![
-            TextWidget::new(Cow::Borrowed(&first_span), Cow::Borrowed(&truncation)),
-            TextWidget::new(Cow::Borrowed(&second_span), Cow::Borrowed(&truncation)),
-        ];
-        let mut hbox = HBox::new();
-        hbox.push(&widgets[0]);
-        hbox.push(&widgets[1]);
+        let hbox = vec![&first_span, &second_span]
+            .iter()
+            .map(|s| {
+                let b: Box<dyn Fitable<_>> =
+                    Box::new(TextWidget::<Spans<_>, TruncationStyle<_>>::new(
+                        Cow::Borrowed(s),
+                        Cow::Borrowed(&truncation),
+                    ));
+                b
+            })
+            .collect::<HBox<_>>();
+
         let actual = format!("{}", hbox.truncate(8));
         let expected = format!(
             "{}",
@@ -435,6 +465,7 @@ mod test {
         );
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn truncate_trivial_inner_noop() {
         let style = Color::Red.normal();
@@ -446,11 +477,12 @@ mod test {
         let truncation = TruncationStyle::Inner(Some(ellipsis_span));
         let widget = TextWidget::new(Cow::Borrowed(&text), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&widget);
+        hbox.push(Box::new(widget));
         let actual = format!("{}", hbox.truncate(7));
         let expected = format!("{}", ANSIStrings(&[style.paint(content)]));
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn trunctate_infinite_inner() {
         let repeat_widget = Repeat::new(Span::<Style>::new(
@@ -465,7 +497,7 @@ mod test {
         let repeat_text_widget =
             TextWidget::new(Cow::Borrowed(&repeat_widget), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&repeat_text_widget);
+        hbox.push(Box::new(repeat_text_widget));
         let actual = format!("{}", hbox.truncate(5));
         let expected = format!(
             "{}",
@@ -477,6 +509,7 @@ mod test {
         );
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn trunctate_infinite_none_left() {
         let span = Span::<Style>::new(
@@ -493,11 +526,12 @@ mod test {
         let repeat_text_widget =
             TextWidget::new(Cow::Borrowed(&repeat_widget), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&repeat_text_widget);
+        hbox.push(Box::new(repeat_text_widget));
         let actual = format!("{}", hbox.truncate(0));
         let expected = String::new();
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn trunctate_infinite_none_right() {
         let span = Span::<Style>::new(
@@ -514,11 +548,12 @@ mod test {
         let repeat_text_widget =
             TextWidget::new(Cow::Borrowed(&repeat_widget), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&repeat_text_widget);
+        hbox.push(Box::new(repeat_text_widget));
         let actual = format!("{}", hbox.truncate(0));
         let expected = String::new();
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn trunctate_infinite_none_inner() {
         let span = Span::<Style>::new(
@@ -535,11 +570,12 @@ mod test {
         let repeat_text_widget =
             TextWidget::new(Cow::Borrowed(&repeat_widget), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&repeat_text_widget);
+        hbox.push(Box::new(repeat_text_widget));
         let actual = format!("{}", hbox.truncate(0));
         let expected = String::new();
         assert_eq!(expected, actual);
     }
+
     #[test]
     fn trunctate_infinite_only_symbol() {
         let span = Span::<Style>::new(
@@ -556,7 +592,7 @@ mod test {
         let repeat_text_widget =
             TextWidget::new(Cow::Borrowed(&repeat_widget), Cow::Borrowed(&truncation));
         let mut hbox = HBox::new();
-        hbox.push(&repeat_text_widget);
+        hbox.push(Box::new(repeat_text_widget));
         let actual = format!("{}", hbox.truncate(1));
         let expected = format!("{}", truncator_style.paint(truncator_text));
         assert_eq!(expected, actual);

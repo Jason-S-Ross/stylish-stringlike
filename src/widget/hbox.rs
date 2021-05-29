@@ -1,10 +1,16 @@
 use crate::text::{Pushable, Width};
 use crate::widget::{Fitable, Truncateable};
+use std::iter::FromIterator;
 
 /// A displayable box of text widgets.
-#[derive(Default)]
 pub struct HBox<'a, T: Truncateable> {
-    elements: Vec<&'a dyn Fitable<T>>,
+    elements: Vec<Box<dyn Fitable<T> + 'a>>,
+}
+
+impl<'a, T: Truncateable> Default for HBox<'a, T> {
+    fn default() -> Self {
+        HBox { elements: vec![] }
+    }
 }
 
 impl<'a, T: Truncateable> HBox<'a, T> {
@@ -14,11 +20,11 @@ impl<'a, T: Truncateable> HBox<'a, T> {
         }
     }
     /// Adds an element.
-    pub fn push(&mut self, element: &'a dyn Fitable<T>) {
+    pub fn push(&mut self, element: Box<dyn Fitable<T> + 'a>) {
         self.elements.push(element);
     }
     /// Truncates this widget to a given size.
-    pub fn truncate(&'a self, width: usize) -> T
+    pub fn truncate(&self, width: usize) -> T
     where
         T: Pushable<T> + Pushable<T::Output> + Default,
     {
@@ -107,6 +113,19 @@ impl<'a, T: Truncateable> HBox<'a, T> {
     }
 }
 
+impl<'a, T: Truncateable> FromIterator<Box<dyn Fitable<T> + 'a>> for HBox<'a, T> {
+    fn from_iter<I>(iter: I) -> HBox<'a, T>
+    where
+        I: IntoIterator<Item = Box<dyn Fitable<T> + 'a>>,
+    {
+        let mut result: HBox<T> = Default::default();
+        for item in iter {
+            result.push(item)
+        }
+        result
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -128,7 +147,7 @@ mod test {
         };
         let widget = TextWidget::new(Cow::Borrowed(&spans), Cow::Borrowed(&truncator));
         let mut hbox: HBox<Spans<Tag>> = Default::default();
-        hbox.push(&widget);
+        hbox.push(Box::new(widget));
         let actual = format!("{}", hbox.truncate(9));
         let expected = String::from("<2>01234</2><3>5</3><1>...</1>");
         assert_eq!(expected, actual);
@@ -143,7 +162,7 @@ mod test {
             TruncationStyle::Left(Span::new(Cow::Borrowed(&fmt_1), Cow::Borrowed("...")));
         let widget = TextWidget::new(Cow::Borrowed(&repeat), Cow::Borrowed(&truncator));
         let mut hbox: HBox<Spans<Tag>> = Default::default();
-        hbox.push(&widget);
+        hbox.push(Box::new(widget));
         let actual = format!("{}", hbox.truncate(5));
         let expected = String::from("<2>==</2><1>...</1>");
         assert_eq!(expected, actual);
@@ -158,7 +177,7 @@ mod test {
         let truncator = TruncationStyle::Left("...");
         let widget = TextWidget::new(Cow::Borrowed(&spans), Cow::Borrowed(&truncator));
         let mut hbox: HBox<Spans<Tag>> = Default::default();
-        hbox.push(&widget);
+        hbox.push(Box::new(widget));
         let actual = format!("{}", hbox.truncate(9));
         let expected = String::from("<2>01234</2><3>5...</3>");
         assert_eq!(expected, actual);
